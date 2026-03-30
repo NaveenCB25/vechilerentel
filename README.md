@@ -70,7 +70,7 @@ npm run dev
 4. Open
 
 ```txt
-http://localhost:5001
+http://localhost:5000
 ```
 
 ## Email Setup
