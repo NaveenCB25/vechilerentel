@@ -19,6 +19,7 @@ type BookingDateFieldProps = {
   onChange: (value: string) => void;
   minDate?: Date;
   maxDate?: Date;
+  popupPosition?: "top" | "bottom";
 };
 
 function formatInr(value: number) {
@@ -69,7 +70,14 @@ function isValidLicenseNumber(value: string) {
   return /^[A-Z]{2}-?\d{2}\d{4}\d{7}$/.test(value.trim().toUpperCase());
 }
 
-function BookingDateField({ label, value, onChange, minDate, maxDate }: BookingDateFieldProps) {
+function BookingDateField({
+  label,
+  value,
+  onChange,
+  minDate,
+  maxDate,
+  popupPosition = "bottom",
+}: BookingDateFieldProps) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const selectedDate = useMemo(() => toDate(value), [value]);
@@ -104,8 +112,12 @@ function BookingDateField({ label, value, onChange, minDate, maxDate }: BookingD
       </button>
 
       {isOpen ? (
-        <div className="absolute left-0 top-[calc(100%+0.65rem)] z-30 w-full min-w-[250px] max-w-[280px]">
-          <div className="overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white p-3 shadow-2xl shadow-slate-900/12 dark:border-white/10 dark:bg-slate-900 dark:shadow-black/35">
+        <div
+          className={`absolute left-0 z-30 w-full min-w-[210px] max-w-[230px] ${
+            popupPosition === "top" ? "bottom-[calc(100%+0.55rem)]" : "top-[calc(100%+0.55rem)]"
+          }`}
+        >
+          <div className="overflow-hidden rounded-[1.25rem] border border-slate-200 bg-white p-2.5 shadow-2xl shadow-slate-900/12 dark:border-white/10 dark:bg-slate-900 dark:shadow-black/35">
             <Calendar
               value={selectedDate}
               onChange={(nextValue) => {
@@ -125,7 +137,7 @@ function BookingDateField({ label, value, onChange, minDate, maxDate }: BookingD
               className="dreamcar-calendar w-full border-0 bg-transparent"
               tileClassName="dreamcar-calendar__tile"
               navigationLabel={({ date }) => (
-                <span className="text-sm font-black text-slate-900 dark:text-white">{format(date, "MMMM yyyy")}</span>
+                <span className="text-xs font-black text-slate-900 dark:text-white">{format(date, "MMM yyyy")}</span>
               )}
               formatShortWeekday={(_, date) => format(date, "EEEEE")}
             />
@@ -433,6 +445,7 @@ export default function Booking() {
                   value={licenseDob}
                   maxDate={todayDate}
                   onChange={setLicenseDob}
+                  popupPosition="top"
                 />
 
                 <div>
@@ -449,7 +462,7 @@ export default function Booking() {
                   </p>
                 </div>
 
-                <BookingDateField label="Expiry" value={licenseExpiry} onChange={setLicenseExpiry} />
+                <BookingDateField label="Expiry" value={licenseExpiry} onChange={setLicenseExpiry} popupPosition="top" />
               </div>
             </div>
 

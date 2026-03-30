@@ -5,12 +5,15 @@ import {
   AlertTriangle,
   BadgeCheck,
   CalendarDays,
+  CarFront,
   FileCheck2,
   IndianRupee,
   LoaderCircle,
   LogOut,
+  PencilLine,
   PlusCircle,
   RefreshCw,
+  Save,
   Users,
   XCircle,
 } from "lucide-react";
@@ -23,11 +26,22 @@ import {
   updateAdminLicenseStatus,
   updateAdminPenaltyStatus,
 } from "../lib/rentals";
-import { getVehicleById, type Booking, type DrivingLicense, type LicenseStatus, type Penalty, type PenaltyStatus } from "../lib/vrms";
+import {
+  getVehicleById,
+  getVehicles,
+  updateVehicle,
+  type Booking,
+  type DrivingLicense,
+  type LicenseStatus,
+  type Penalty,
+  type PenaltyStatus,
+  type Vehicle,
+  type VehicleDraft,
+} from "../lib/vrms";
 
-type AdminTab = "overview" | "bookings" | "licenses" | "penalties";
+type AdminTab = "overview" | "bookings" | "licenses" | "penalties" | "vehicles";
 
-const VALID_TABS: AdminTab[] = ["overview", "bookings", "licenses", "penalties"];
+const VALID_TABS: AdminTab[] = ["overview", "bookings", "licenses", "penalties", "vehicles"];
 
 function formatInr(value: number) {
   return value.toLocaleString("en-IN");
@@ -58,6 +72,7 @@ export default function Admin() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [licenses, setLicenses] = useState<DrivingLicense[]>([]);
   const [penalties, setPenalties] = useState<Penalty[]>([]);
+  const [vehicles, setVehiclesState] = useState<Vehicle[]>(() => getVehicles());
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState("");
@@ -65,10 +80,19 @@ export default function Admin() {
   const [updatingLicenseId, setUpdatingLicenseId] = useState<string | null>(null);
   const [updatingPenaltyId, setUpdatingPenaltyId] = useState<string | null>(null);
   const [isCreatingPenalty, setIsCreatingPenalty] = useState(false);
+  const [isSavingVehicle, setIsSavingVehicle] = useState(false);
   const [penaltyForm, setPenaltyForm] = useState({
     bookingId: "",
     reason: "",
     amount: "",
+  });
+  const [selectedVehicleId, setSelectedVehicleId] = useState("");
+  const [vehicleForm, setVehicleForm] = useState<VehicleDraft>({
+    name: "",
+    type: "",
+    image: "",
+    pricePerDay: 0,
+    specs: [],
   });
 
   const loadOverview = async (token: string, showSpinner: boolean) => {
@@ -85,6 +109,7 @@ export default function Admin() {
       setBookings(data.bookings);
       setLicenses(data.licenses);
       setPenalties(data.penalties);
+      setVehiclesState(getVehicles());
     } catch (nextError: any) {
       const message = nextError?.message || "Failed to load admin dashboard";
       setError(message);
@@ -116,6 +141,27 @@ export default function Admin() {
     void loadOverview(adminToken, true);
   }, [adminToken]);
 
+  useEffect(() => {
+    if (!selectedVehicleId && vehicles.length > 0) {
+      setSelectedVehicleId(vehicles[0].id);
+    }
+  }, [selectedVehicleId, vehicles]);
+
+  useEffect(() => {
+    const selectedVehicle = vehicles.find((vehicle) => vehicle.id === selectedVehicleId);
+    if (!selectedVehicle) {
+      return;
+    }
+
+    setVehicleForm({
+      name: selectedVehicle.name,
+      type: selectedVehicle.type,
+      image: selectedVehicle.image,
+      pricePerDay: selectedVehicle.pricePerDay,
+      specs: selectedVehicle.specs.map((spec) => ({ ...spec })),
+    });
+  }, [selectedVehicleId, vehicles]);
+
   const revenue = useMemo(() => bookings.reduce((sum, booking) => sum + booking.totalPrice, 0), [bookings]);
   const pendingBookings = useMemo(() => bookings.filter((booking) => booking.status === "pending").length, [bookings]);
   const pendingLicenses = useMemo(() => licenses.filter((license) => license.status === "pending").length, [licenses]);
@@ -127,6 +173,7 @@ export default function Admin() {
     { key: "bookings", label: "Bookings", icon: CalendarDays },
     { key: "licenses", label: "Licenses", icon: FileCheck2 },
     { key: "penalties", label: "Penalties", icon: AlertTriangle },
+    { key: "vehicles", label: "Vehicles", icon: CarFront },
   ];
 
   const handleBookingStatus = async (bookingId: string, status: Booking["status"]) => {
@@ -210,6 +257,44 @@ export default function Admin() {
     }
   };
 
+  const handleVehicleSpecChange = (index: number, value: string) => {
+    setVehicleForm((current) => ({
+      ...current,
+      specs: current.specs.map((spec, specIndex) => (specIndex === index ? { ...spec, value } : spec)),
+    }));
+  };
+
+  const handleSaveVehicle = async (event: FormEvent) => {
+    event.preventDefault();
+
+    if (!selectedVehicleId) {
+      return;
+    }
+
+    setIsSavingVehicle(true);
+    setError("");
+
+    try {
+      const nextVehicles = updateVehicle(selectedVehicleId, {
+        ...vehicleForm,
+        name: vehicleForm.name.trim(),
+        type: vehicleForm.type.trim(),
+        image: vehicleForm.image.trim(),
+        pricePerDay: Number(vehicleForm.pricePerDay) || 0,
+        specs: vehicleForm.specs.map((spec) => ({
+          ...spec,
+          value: spec.value.trim(),
+        })),
+      });
+
+      setVehiclesState(nextVehicles);
+    } catch (nextError: any) {
+      setError(nextError?.message || "Failed to save vehicle");
+    } finally {
+      setIsSavingVehicle(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-950 px-4 text-white">
@@ -265,7 +350,7 @@ export default function Admin() {
           </div>
         ) : null}
 
-        <div className="mb-10 grid grid-cols-1 gap-3 rounded-[2rem] border border-white/10 bg-white/5 p-2 sm:grid-cols-4 sm:gap-4">
+        <div className="mb-10 grid grid-cols-1 gap-3 rounded-[2rem] border border-white/10 bg-white/5 p-2 sm:grid-cols-5 sm:gap-4">
           {tabs.map((item) => {
             const Icon = item.icon;
             const selected = item.key === activeTab;
@@ -643,6 +728,111 @@ export default function Admin() {
                   </tbody>
                 </table>
               </div>
+            </div>
+          </div>
+        ) : null}
+
+        {activeTab === "vehicles" ? (
+          <div className="grid gap-6 xl:grid-cols-[320px_1fr]">
+            <div className="rounded-[2rem] border border-white/10 bg-white/5 p-6">
+              <div className="mb-5">
+                <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">Fleet</p>
+                <h2 className="mt-2 text-2xl font-black">Edit vehicles</h2>
+              </div>
+
+              <div className="space-y-3">
+                {vehicles.map((vehicle) => (
+                  <button
+                    key={vehicle.id}
+                    type="button"
+                    onClick={() => setSelectedVehicleId(vehicle.id)}
+                    className={`w-full rounded-[1.5rem] border px-4 py-4 text-left transition-all ${
+                      selectedVehicleId === vehicle.id
+                        ? "border-sky-400/40 bg-sky-500/10"
+                        : "border-white/10 bg-slate-950/50 hover:bg-white/5"
+                    }`}
+                  >
+                    <p className="font-bold text-white">{vehicle.name}</p>
+                    <p className="mt-1 text-xs text-slate-400">{vehicle.type}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-[2rem] border border-white/10 bg-white/5 p-6">
+              <div className="mb-6 flex items-center gap-3">
+                <div className="rounded-2xl bg-white/10 p-2 ring-1 ring-white/10">
+                  <PencilLine className="h-4 w-4 text-sky-300" />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">Vehicle Details</p>
+                  <h2 className="mt-1 text-2xl font-black">Edit option</h2>
+                </div>
+              </div>
+
+              <form className="grid gap-4 md:grid-cols-2" onSubmit={handleSaveVehicle}>
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-slate-300">Name</label>
+                  <input
+                    value={vehicleForm.name}
+                    onChange={(event) => setVehicleForm((current) => ({ ...current, name: event.target.value }))}
+                    className="w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm text-white outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-slate-300">Type</label>
+                  <input
+                    value={vehicleForm.type}
+                    onChange={(event) => setVehicleForm((current) => ({ ...current, type: event.target.value }))}
+                    className="w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm text-white outline-none"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="mb-2 block text-sm font-semibold text-slate-300">Image URL</label>
+                  <input
+                    value={vehicleForm.image}
+                    onChange={(event) => setVehicleForm((current) => ({ ...current, image: event.target.value }))}
+                    className="w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm text-white outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-slate-300">Price per day</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={vehicleForm.pricePerDay}
+                    onChange={(event) =>
+                      setVehicleForm((current) => ({ ...current, pricePerDay: Number(event.target.value) }))
+                    }
+                    className="w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm text-white outline-none"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="mb-2 block text-sm font-semibold text-slate-300">Specs</label>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {vehicleForm.specs.map((spec, index) => (
+                      <div key={spec.label} className="rounded-[1.25rem] border border-white/10 bg-slate-950/60 p-3">
+                        <p className="mb-2 text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">{spec.label}</p>
+                        <input
+                          value={spec.value}
+                          onChange={(event) => handleVehicleSpecChange(index, event.target.value)}
+                          className="w-full rounded-xl border border-white/10 bg-slate-900 px-3 py-2 text-sm text-white outline-none"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="md:col-span-2">
+                  <button
+                    type="submit"
+                    disabled={isSavingVehicle}
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl bg-sky-500/15 px-5 py-3 text-sm font-bold text-sky-100 ring-1 ring-sky-500/25 transition-transform hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <Save className="h-4 w-4" />
+                    {isSavingVehicle ? "Saving..." : "Save vehicle details"}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         ) : null}

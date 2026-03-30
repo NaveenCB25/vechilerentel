@@ -7,6 +7,8 @@ export type Vehicle = {
   specs: Array<{ label: string; value: string }>;
 };
 
+export type VehicleDraft = Omit<Vehicle, "id">;
+
 export type BookingStatus = "pending" | "active" | "completed" | "cancelled";
 export type PaymentMethod = "upi" | "card" | "netbanking" | "cash";
 export type PaymentStatus = "pending" | "paid";
@@ -194,6 +196,20 @@ export function getVehicles(): Vehicle[] {
 
 export function setVehicles(vehicles: Vehicle[]): void {
   writeJson(STORAGE_KEYS.vehicles, vehicles);
+}
+
+export function updateVehicle(vehicleId: string, nextVehicle: VehicleDraft): Vehicle[] {
+  const vehicles = getVehicles().map((vehicle) =>
+    vehicle.id === vehicleId
+      ? {
+          ...vehicle,
+          ...nextVehicle,
+        }
+      : vehicle,
+  );
+
+  writeJson(STORAGE_KEYS.vehicles, vehicles);
+  return vehicles;
 }
 
 export function getVehicleById(vehicleId: string): Vehicle | null {

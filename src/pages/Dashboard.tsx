@@ -21,6 +21,12 @@ function getBadgeClasses(status: string) {
   return "bg-slate-100 text-slate-700";
 }
 
+function getPenaltyBadgeClasses(status: Penalty["status"]) {
+  if (status === "paid") return "bg-emerald-100 text-emerald-700";
+  if (status === "waived") return "bg-slate-200 text-slate-700";
+  return "bg-amber-100 text-amber-700";
+}
+
 export default function Dashboard() {
   const { user, userToken, logoutUser } = useContext(AuthContext);
   const navigate = useNavigate();
@@ -396,6 +402,7 @@ export default function Dashboard() {
             <div className="grid gap-5 lg:grid-cols-2">
               {bookings.map((booking) => {
                 const vehicle = getVehicleById(booking.vehicleId);
+                const bookingPenalties = penalties.filter((penalty) => penalty.bookingId === booking.id);
 
                 return (
                   <div
@@ -440,6 +447,39 @@ export default function Dashboard() {
                             {booking.paymentStatus}
                           </span>
                         </div>
+                        {bookingPenalties.length > 0 ? (
+                          <div className="mt-4 rounded-[1.5rem] border border-amber-200 bg-amber-50 px-4 py-4">
+                            <div className="flex items-center justify-between gap-3">
+                              <p className="text-xs font-bold uppercase tracking-[0.25em] text-amber-700">Penalties</p>
+                              <span className="text-xs font-bold text-amber-700">
+                                Rs. {formatInr(bookingPenalties.reduce((sum, penalty) => sum + penalty.amount, 0))}
+                              </span>
+                            </div>
+                            <div className="mt-3 space-y-3">
+                              {bookingPenalties.map((penalty) => (
+                                <div
+                                  key={penalty.id}
+                                  className="rounded-[1rem] border border-amber-100 bg-white/80 px-3 py-3"
+                                >
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div>
+                                      <p className="font-semibold text-slate-900">{penalty.reason}</p>
+                                      <p className="mt-1 text-xs text-slate-500">
+                                        {new Date(penalty.createdAt).toLocaleDateString()}
+                                      </p>
+                                    </div>
+                                    <span
+                                      className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${getPenaltyBadgeClasses(penalty.status)}`}
+                                    >
+                                      {penalty.status}
+                                    </span>
+                                  </div>
+                                  <p className="mt-2 text-sm font-bold text-slate-900">Rs. {formatInr(penalty.amount)}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ) : null}
                         {vehicle && (
                           <Link
                             to={`/vehicle/${vehicle.id}`}
