@@ -4,7 +4,7 @@ import { motion } from "motion/react";
 import { ArrowLeft, Heart, Info } from "lucide-react";
 import { toast } from "react-toastify";
 import { AuthContext } from "../context/AuthContext";
-import { getSavedVehicleIds, getVehicleById, toggleSavedVehicle } from "../lib/vrms";
+import { getSavedVehicleIds, getVehicleById, subscribeToVehicleCatalog, toggleSavedVehicle, type Vehicle } from "../lib/vrms";
 
 const INTERIOR_GALLERIES: Record<string, string[]> = {
   "tesla-model-s": [
@@ -48,12 +48,22 @@ export default function VehicleDetails() {
   const navigate = useNavigate();
   const { user } = useContext(AuthContext);
 
-  const vehicle = useMemo(() => (id ? getVehicleById(id) : null), [id]);
+  const [vehicle, setVehicle] = useState<Vehicle | null>(() => (id ? getVehicleById(id) : null));
   const [savedIds, setSavedIds] = useState(() => (user?.email ? getSavedVehicleIds(user.email) : []));
 
   useEffect(() => {
     setSavedIds(user?.email ? getSavedVehicleIds(user.email) : []);
   }, [user?.email]);
+
+  useEffect(() => {
+    setVehicle(id ? getVehicleById(id) : null);
+  }, [id]);
+
+  useEffect(() => {
+    return subscribeToVehicleCatalog(() => {
+      setVehicle(id ? getVehicleById(id) : null);
+    });
+  }, [id]);
 
   if (!vehicle) {
     return (
@@ -73,7 +83,8 @@ export default function VehicleDetails() {
   }
 
   const isSaved = savedIds.includes(vehicle.id);
-  const interiorGallery = INTERIOR_GALLERIES[vehicle.id] || INTERIOR_GALLERIES["mercedes-g-class"];
+  const interiorGallery =
+    vehicle.gallery?.length === 3 ? vehicle.gallery : INTERIOR_GALLERIES[vehicle.id] || INTERIOR_GALLERIES["mercedes-g-class"];
 
   const handleToggleSave = () => {
     if (!user?.email) {

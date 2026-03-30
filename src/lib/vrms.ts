@@ -3,6 +3,7 @@ export type Vehicle = {
   name: string;
   type: string;
   image: string;
+  gallery: string[];
   pricePerDay: number;
   specs: Array<{ label: string; value: string }>;
 };
@@ -63,11 +64,19 @@ const STORAGE_KEYS = {
   userMeta: "vrms_user_meta",
 } as const;
 
+const VEHICLE_CATALOG_EVENT = "vrms:vehicles-updated";
+
 type UserMeta = {
   memberSince?: string;
   verificationStatus?: "verified" | "unverified";
   accountStatus?: "active" | "disabled";
 };
+
+const DEFAULT_GALLERY_IMAGES = [
+  "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1200&q=80",
+  "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=1200&q=80",
+  "https://images.unsplash.com/photo-1489824904134-891ab64532f1?auto=format&fit=crop&w=1200&q=80",
+];
 
 const DEFAULT_VEHICLES: Vehicle[] = [
   {
@@ -76,6 +85,11 @@ const DEFAULT_VEHICLES: Vehicle[] = [
     type: "Electric",
     image:
       "https://images.unsplash.com/photo-1614200187524-dc4b892acf16?auto=format&fit=crop&w=1400&q=80",
+    gallery: [
+      "https://images.unsplash.com/photo-1511919884226-fd3cad34687c?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=1200&q=80",
+    ],
     pricePerDay: 11999,
     specs: [
       { label: "Seats", value: "5" },
@@ -90,6 +104,11 @@ const DEFAULT_VEHICLES: Vehicle[] = [
     type: "Sports",
     image:
       "https://bmw.scene7.com/is/image/BMW/DI23_000189521:16to7?fmt=webp&wid=2560&hei=1120",
+    gallery: [
+      "https://images.unsplash.com/photo-1544636331-e26879cd4d9b?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1553440569-bcc63803a83d?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1502877338535-766e1452684a?auto=format&fit=crop&w=1200&q=80",
+    ],
     pricePerDay: 14999,
     specs: [
       { label: "Seats", value: "4" },
@@ -104,6 +123,11 @@ const DEFAULT_VEHICLES: Vehicle[] = [
     type: "Supercar",
     image:
       "https://prs.porsche.com/iod/image/IN/9921B2/1/N4Igxg9gdgZglgcxALlAQynAtmgLnaAZxQG0BdAGnDSwFMAnNFUOAExRFoA9cBaAGwgB3XjHrQ+-WjFwgqEAA74izEADc09OBlnIQrWoQDWuRSAC+5qrShq44qHSi6W7PQFV6AIwwBZNGAYciCKylDEqJZU-IgAFvhQSKggbBwAcgCSAOIAEgAqwaEE4cxRIArirACuYC4pbiAAnI0ATACMAEIthUrFEaCQsIikIAAMGQDMwaNpHdMACqPTeQDC0+5zVJ05wW1ZABy7ADIAyrtpU1tpAIK7i3cAort5lyBtABrdVC0ALI0TbQA+gApYHBForACs4IAaj9wQB1JbfABaayoEw6rwmADEnhicrcMcD4RiAIoFDEnZEgH7XV4-HFfWlZebBH5HABs7PcOOCkP2735AGkzlRIb4iSBIe90SBOR0pZyHvj5TiaZycVlgpzgQARHXCxo6tJgqicgBKcs57xhwQA7NdhQ6cs6qPbha97b5je73Nr3TCafbPsF9r6QPsMpTI2l7WG8m0wzCA01IVLGtcDVRGsCM-NXo0YW6mgiY40Uaq9fsLcEHqMpQ9fMycb4aTiUTSsm0+VQsnloX2YUmqBkYRGMkjgsL9nLhddmcKySOQEd+0dNiB5jsqGT08EyTkV2Tgdzd2TmWSYa93Blme55hH3O8zyAYergjCjjSYRalpRwAgKpnHoABPDgMjSYIsAgAx+AATVoTQUBaUYWk5SwrBAQhaFwBIEH6EAYAgegcF0EAACsFFoJAqFwRhwgUTQbF0GA0H4HDLCAA?clientId=modelpage",
+    gallery: [
+      "https://images.unsplash.com/photo-1511919884226-fd3cad34687c?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&w=1200&q=80",
+    ],
     pricePerDay: 21999,
     specs: [
       { label: "Seats", value: "2+2" },
@@ -118,6 +142,11 @@ const DEFAULT_VEHICLES: Vehicle[] = [
     type: "SUV",
     image:
       "https://uploads.audi-mediacenter.com/system/production/media/122633/images/d6f275329fe669a9f1f59eb9686cddae331c6379/A240555_web_640.jpg?1733133179",
+    gallery: [
+      "https://images.unsplash.com/photo-1489824904134-891ab64532f1?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1200&q=80",
+    ],
     pricePerDay: 9999,
     specs: [
       { label: "Seats", value: "7" },
@@ -132,6 +161,11 @@ const DEFAULT_VEHICLES: Vehicle[] = [
     type: "Luxury SUV",
     image:
       "https://media.oneweb.mercedes-benz.com/images/dynamic/europe/IN/465250/X24/iris.png?q=COSY-EU-100-1713d0VXqbWFqtyO67PobzIr3eWsrrCsdRRzwQZgk4ZbMw3SGtlaWtsd2H%25cUfgUfXGEzymJ0lcIhOB2PBqbApeIoI5usKDQC3UnpkzNL6Sm%25kbFDZEttsdB%25ycJtj9GXOcAyjJ0lCWtOB2vM%25bApLHXI5uazxQC3lQFkzN2Iwm7jyXZhKVUp4%25vq7IayLRltRYax2vWrH1pVtn8wrzboiZYMEM4FgTwTg93ve6PDNcoSeWcKWtsdYYQcUfFh6XGHRvW6INpqJRMiK81gEyJlfDADSjSiNsG8u4NLwa2ITvU%25&BKGND=9&IMGT=P27&cp=U7lLKRUtPa6KAFr8s_ubHw&uni=m&POV=BE040,PZM",
+    gallery: [
+      "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1489824904134-891ab64532f1?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?auto=format&fit=crop&w=1200&q=80",
+    ],
     pricePerDay: 18999,
     specs: [
       { label: "Seats", value: "5" },
@@ -146,6 +180,11 @@ const DEFAULT_VEHICLES: Vehicle[] = [
     type: "Bike",
     image:
       "https://www.royalenfield.com/content/dam/royal-enfield/motorcycles/continental-gt/banner/new/gallery/gallery-7.jpg",
+    gallery: [
+      "https://images.unsplash.com/photo-1558981806-ec527fa84c39?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1529429617124-aee711a5ac1c?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1517846693594-1567da72af75?auto=format&fit=crop&w=1200&q=80",
+    ],
     pricePerDay: 2499,
     specs: [
       { label: "Seats", value: "2" },
@@ -185,31 +224,80 @@ function writeJson<T>(key: string, value: T) {
   window.localStorage.setItem(key, JSON.stringify(value));
 }
 
+function emitVehicleCatalogUpdated() {
+  if (!canUseBrowserStorage()) {
+    return;
+  }
+
+  window.dispatchEvent(new CustomEvent(VEHICLE_CATALOG_EVENT));
+}
+
+function normalizeVehicle(vehicle: Omit<Vehicle, "gallery"> & { gallery?: string[] }): Vehicle {
+  const nextGallery = Array.isArray(vehicle.gallery) ? vehicle.gallery.filter(Boolean).slice(0, 3) : [];
+
+  while (nextGallery.length < 3) {
+    nextGallery.push(DEFAULT_GALLERY_IMAGES[nextGallery.length] || vehicle.image);
+  }
+
+  return {
+    ...vehicle,
+    gallery: nextGallery,
+  };
+}
+
 export function createId(prefix: string) {
   const candidate = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : String(Date.now());
   return `${prefix}_${candidate}`;
 }
 
 export function getVehicles(): Vehicle[] {
-  return readJson<Vehicle[]>(STORAGE_KEYS.vehicles, DEFAULT_VEHICLES);
+  return readJson<Vehicle[]>(STORAGE_KEYS.vehicles, DEFAULT_VEHICLES).map((vehicle) => normalizeVehicle(vehicle));
 }
 
 export function setVehicles(vehicles: Vehicle[]): void {
-  writeJson(STORAGE_KEYS.vehicles, vehicles);
+  writeJson(
+    STORAGE_KEYS.vehicles,
+    vehicles.map((vehicle) => normalizeVehicle(vehicle)),
+  );
+  emitVehicleCatalogUpdated();
 }
 
 export function updateVehicle(vehicleId: string, nextVehicle: VehicleDraft): Vehicle[] {
   const vehicles = getVehicles().map((vehicle) =>
     vehicle.id === vehicleId
-      ? {
+      ? normalizeVehicle({
           ...vehicle,
           ...nextVehicle,
-        }
+        })
       : vehicle,
   );
 
   writeJson(STORAGE_KEYS.vehicles, vehicles);
+  emitVehicleCatalogUpdated();
   return vehicles;
+}
+
+export function removeVehicle(vehicleId: string): Vehicle[] {
+  const vehicles = getVehicles().filter((vehicle) => vehicle.id !== vehicleId);
+  writeJson(STORAGE_KEYS.vehicles, vehicles);
+  emitVehicleCatalogUpdated();
+  return vehicles;
+}
+
+export function subscribeToVehicleCatalog(listener: () => void) {
+  if (typeof window === "undefined") {
+    return () => {};
+  }
+
+  const handleCatalogChange = () => listener();
+
+  window.addEventListener(VEHICLE_CATALOG_EVENT, handleCatalogChange);
+  window.addEventListener("storage", handleCatalogChange);
+
+  return () => {
+    window.removeEventListener(VEHICLE_CATALOG_EVENT, handleCatalogChange);
+    window.removeEventListener("storage", handleCatalogChange);
+  };
 }
 
 export function getVehicleById(vehicleId: string): Vehicle | null {

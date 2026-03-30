@@ -5,7 +5,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 
 import { AuthContext } from "../context/AuthContext";
-import { getSavedVehicleIds, getVehicles, toggleSavedVehicle } from "../lib/vrms";
+import { getSavedVehicleIds, getVehicles, subscribeToVehicleCatalog, toggleSavedVehicle, type Vehicle } from "../lib/vrms";
 
 function formatInr(value: number) {
   return value.toLocaleString("en-IN");
@@ -14,7 +14,7 @@ function formatInr(value: number) {
 export default function Explore() {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
-  const vehicles = useMemo(() => getVehicles(), []);
+  const [vehicles, setVehicles] = useState<Vehicle[]>(() => getVehicles());
 
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
@@ -23,6 +23,12 @@ export default function Explore() {
   useEffect(() => {
     setSavedIds(user?.email ? getSavedVehicleIds(user.email) : []);
   }, [user?.email]);
+
+  useEffect(() => {
+    return subscribeToVehicleCatalog(() => {
+      setVehicles(getVehicles());
+    });
+  }, []);
 
   const types = useMemo(() => {
     const unique = Array.from(new Set(vehicles.map((vehicle) => vehicle.type))) as string[];

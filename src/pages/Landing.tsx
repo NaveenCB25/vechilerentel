@@ -1,4 +1,4 @@
-import { useContext } from "react";
+import { useContext, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "motion/react";
 import {
@@ -13,7 +13,7 @@ import {
 
 import { AuthContext } from "../context/AuthContext";
 import { APP_INFO } from "../data";
-import { getVehicles } from "../lib/vrms";
+import { getVehicles, subscribeToVehicleCatalog, type Vehicle } from "../lib/vrms";
 
 function formatInr(value: number) {
   return value.toLocaleString("en-IN");
@@ -23,7 +23,12 @@ const ratings = [4.9, 4.8, 5.0, 4.7];
 
 export default function Landing() {
   const { user } = useContext(AuthContext);
-  const vehicles = getVehicles().slice(0, 4);
+  const [vehicles, setVehicles] = useState<Vehicle[]>(() => getVehicles().slice(0, 4));
+  useEffect(() => {
+    return subscribeToVehicleCatalog(() => {
+      setVehicles(getVehicles().slice(0, 4));
+    });
+  }, []);
   const leadVehicle = vehicles[0];
 
   return (

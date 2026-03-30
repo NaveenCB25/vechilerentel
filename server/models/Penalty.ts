@@ -10,7 +10,7 @@ const penaltySchema = new mongoose.Schema(
     amount: { type: Number, required: true, min: 0 },
     status: {
       type: String,
-      enum: ["pending", "paid", "waived"],
+      enum: ["pending", "paid", "Canceled"],
       default: "pending",
     },
     createdAt: { type: Date, default: Date.now },

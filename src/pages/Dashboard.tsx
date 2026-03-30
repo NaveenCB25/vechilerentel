@@ -5,7 +5,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { AuthContext } from "../context/AuthContext";
 import { fetchUserBookings, fetchUserPenalties } from "../lib/rentals";
-import { getSavedVehicleIds, getVehicleById, getVehicles, type Booking, type Penalty } from "../lib/vrms";
+import { getSavedVehicleIds, getVehicleById, getVehicles, subscribeToVehicleCatalog, type Booking, type Penalty, type Vehicle } from "../lib/vrms";
 
 type DashboardTab = "home" | "collections" | "bookings";
 
@@ -33,7 +33,7 @@ export default function Dashboard() {
   const { tab } = useParams();
 
   const activeTab = (tab as DashboardTab | undefined) || "home";
-  const vehicles = useMemo(() => getVehicles(), []);
+  const [vehicles, setVehicles] = useState<Vehicle[]>(() => getVehicles());
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [penalties, setPenalties] = useState<Penalty[]>([]);
   const [bookingsLoading, setBookingsLoading] = useState(true);
@@ -83,6 +83,12 @@ export default function Dashboard() {
     };
   }, [logoutUser, navigate, userToken]);
 
+  useEffect(() => {
+    return subscribeToVehicleCatalog(() => {
+      setVehicles(getVehicles());
+    });
+  }, []);
+
   const savedIds = useMemo(() => {
     if (!user?.email) {
       return [];
@@ -120,7 +126,7 @@ export default function Dashboard() {
       { id: "tip-1", title: "Save vehicles to Collections", meta: "Tap the heart on Explore." },
       { id: "tip-2", title: "Book your next ride", meta: "Pick dates and confirm." },
     ];
-  }, [bookings]);
+  }, [bookings, vehicles]);
 
   const tabs: Array<{ key: DashboardTab; label: string; icon: any }> = [
     { key: "home", label: "Home", icon: LayoutDashboard },

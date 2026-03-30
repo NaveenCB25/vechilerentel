@@ -9,7 +9,7 @@ import { toast } from "react-toastify";
 import { AuthContext } from "../context/AuthContext";
 import { fetchLocationSuggestions, type LocationSuggestion } from "../lib/locations";
 import { submitRental } from "../lib/rentals";
-import { getVehicleById, type PaymentMethod } from "../lib/vrms";
+import { getVehicleById, subscribeToVehicleCatalog, type PaymentMethod, type Vehicle } from "../lib/vrms";
 
 type CalendarSelection = Date | null | [Date | null, Date | null];
 
@@ -153,7 +153,7 @@ export default function Booking() {
   const navigate = useNavigate();
   const { user, userToken } = useContext(AuthContext);
 
-  const vehicle = useMemo(() => (id ? getVehicleById(id) : null), [id]);
+  const [vehicle, setVehicle] = useState<Vehicle | null>(() => (id ? getVehicleById(id) : null));
   const today = useMemo(() => getLocalDateString(), []);
   const todayDate = useMemo(() => toDate(today) ?? new Date(), [today]);
 
@@ -214,6 +214,16 @@ export default function Booking() {
       window.clearTimeout(timeoutId);
     };
   }, [location]);
+
+  useEffect(() => {
+    setVehicle(id ? getVehicleById(id) : null);
+  }, [id]);
+
+  useEffect(() => {
+    return subscribeToVehicleCatalog(() => {
+      setVehicle(id ? getVehicleById(id) : null);
+    });
+  }, [id]);
 
   if (!vehicle) {
     return (

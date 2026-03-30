@@ -17,6 +17,7 @@ import {
   Users,
   XCircle,
 } from "lucide-react";
+import { toast } from "react-toastify";
 
 import { AuthContext } from "../context/AuthContext";
 import {
@@ -27,8 +28,11 @@ import {
   updateAdminPenaltyStatus,
 } from "../lib/rentals";
 import {
+  createId,
   getVehicleById,
   getVehicles,
+  removeVehicle,
+  setVehicles,
   updateVehicle,
   type Booking,
   type DrivingLicense,
@@ -63,6 +67,25 @@ function badgeClasses(status: string) {
   return "bg-rose-500/15 text-rose-200 ring-1 ring-rose-500/25";
 }
 
+function buildVehicleId(name: string, vehicles: Vehicle[]) {
+  const slug = name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+  const baseId = slug || createId("vehicle").replace(/_/g, "-").toLowerCase();
+  let candidate = baseId;
+  let index = 2;
+
+  while (vehicles.some((vehicle) => vehicle.id === candidate)) {
+    candidate = `${baseId}-${index}`;
+    index += 1;
+  }
+
+  return candidate;
+}
+
 export default function Admin() {
   const navigate = useNavigate();
   const { tab } = useParams();
@@ -81,6 +104,7 @@ export default function Admin() {
   const [updatingPenaltyId, setUpdatingPenaltyId] = useState<string | null>(null);
   const [isCreatingPenalty, setIsCreatingPenalty] = useState(false);
   const [isSavingVehicle, setIsSavingVehicle] = useState(false);
+  const [isRemovingVehicle, setIsRemovingVehicle] = useState(false);
   const [penaltyForm, setPenaltyForm] = useState({
     bookingId: "",
     reason: "",
@@ -91,6 +115,7 @@ export default function Admin() {
     name: "",
     type: "",
     image: "",
+    gallery: ["", "", ""],
     pricePerDay: 0,
     specs: [],
   });
@@ -157,6 +182,7 @@ export default function Admin() {
       name: selectedVehicle.name,
       type: selectedVehicle.type,
       image: selectedVehicle.image,
+      gallery: [...selectedVehicle.gallery],
       pricePerDay: selectedVehicle.pricePerDay,
       specs: selectedVehicle.specs.map((spec) => ({ ...spec })),
     });
@@ -264,6 +290,49 @@ export default function Admin() {
     }));
   };
 
+  const handleVehicleGalleryChange = (index: number, value: string) => {
+    setVehicleForm((current) => ({
+      ...current,
+      gallery: current.gallery.map((image, imageIndex) => (imageIndex === index ? value : image)),
+    }));
+  };
+
+  const handleAddVehicle = () => {
+    const draftVehicle: Vehicle = {
+      id: buildVehicleId("new-vehicle", vehicles),
+      name: "New Vehicle",
+      type: "Premium",
+      image:
+        "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1400&q=80",
+      gallery: [
+        "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1200&q=80",
+        "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=1200&q=80",
+        "https://images.unsplash.com/photo-1489824904134-891ab64532f1?auto=format&fit=crop&w=1200&q=80",
+      ],
+      pricePerDay: 9999,
+      specs: [
+        { label: "Seats", value: "4" },
+        { label: "Transmission", value: "Automatic" },
+        { label: "Fuel", value: "Petrol" },
+        { label: "Drive", value: "RWD" },
+      ],
+    };
+
+    const nextVehicles = [draftVehicle, ...vehicles];
+    setVehicles(nextVehicles);
+    setVehiclesState(nextVehicles);
+    setSelectedVehicleId(draftVehicle.id);
+    setVehicleForm({
+      name: draftVehicle.name,
+      type: draftVehicle.type,
+      image: draftVehicle.image,
+      gallery: [...draftVehicle.gallery],
+      pricePerDay: draftVehicle.pricePerDay,
+      specs: draftVehicle.specs.map((spec) => ({ ...spec })),
+    });
+    toast.success("New vehicle added.");
+  };
+
   const handleSaveVehicle = async (event: FormEvent) => {
     event.preventDefault();
 
@@ -275,11 +344,13 @@ export default function Admin() {
     setError("");
 
     try {
+      const trimmedName = vehicleForm.name.trim() || "New Vehicle";
       const nextVehicles = updateVehicle(selectedVehicleId, {
         ...vehicleForm,
-        name: vehicleForm.name.trim(),
+        name: trimmedName,
         type: vehicleForm.type.trim(),
         image: vehicleForm.image.trim(),
+        gallery: vehicleForm.gallery.map((image) => image.trim()),
         pricePerDay: Number(vehicleForm.pricePerDay) || 0,
         specs: vehicleForm.specs.map((spec) => ({
           ...spec,
@@ -288,10 +359,53 @@ export default function Admin() {
       });
 
       setVehiclesState(nextVehicles);
+      toast.success("Vehicle details saved.");
     } catch (nextError: any) {
       setError(nextError?.message || "Failed to save vehicle");
     } finally {
       setIsSavingVehicle(false);
+    }
+  };
+
+  const handleRemoveVehicle = () => {
+    if (!selectedVehicleId) {
+      return;
+    }
+
+    setIsRemovingVehicle(true);
+    setError("");
+
+    try {
+      const nextVehicles = removeVehicle(selectedVehicleId);
+      setVehiclesState(nextVehicles);
+      toast.success("Vehicle removed from fleet.");
+
+      const nextSelectedVehicle = nextVehicles[0] || null;
+      setSelectedVehicleId(nextSelectedVehicle?.id || "");
+
+      if (nextSelectedVehicle) {
+        setVehicleForm({
+          name: nextSelectedVehicle.name,
+          type: nextSelectedVehicle.type,
+          image: nextSelectedVehicle.image,
+          gallery: [...nextSelectedVehicle.gallery],
+          pricePerDay: nextSelectedVehicle.pricePerDay,
+          specs: nextSelectedVehicle.specs.map((spec) => ({ ...spec })),
+        });
+      } else {
+        setVehicleForm({
+          name: "",
+          type: "",
+          image: "",
+          gallery: ["", "", ""],
+          pricePerDay: 0,
+          specs: [],
+        });
+      }
+    } catch (nextError: any) {
+      setError(nextError?.message || "Failed to remove vehicle");
+    } finally {
+      setIsRemovingVehicle(false);
     }
   };
 
@@ -735,9 +849,19 @@ export default function Admin() {
         {activeTab === "vehicles" ? (
           <div className="grid gap-6 xl:grid-cols-[320px_1fr]">
             <div className="rounded-[2rem] border border-white/10 bg-white/5 p-6">
-              <div className="mb-5">
-                <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">Fleet</p>
-                <h2 className="mt-2 text-2xl font-black">Edit vehicles</h2>
+              <div className="mb-5 flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">Fleet</p>
+                  <h2 className="mt-2 text-2xl font-black">Edit vehicles</h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleAddVehicle}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-sky-500/15 px-4 py-3 text-sm font-bold text-sky-100 ring-1 ring-sky-500/25 transition-transform hover:scale-[1.01]"
+                >
+                  <PlusCircle className="h-4 w-4" />
+                  Add
+                </button>
               </div>
 
               <div className="space-y-3">
@@ -795,6 +919,20 @@ export default function Admin() {
                     className="w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm text-white outline-none"
                   />
                 </div>
+                <div className="md:col-span-2">
+                  <label className="mb-2 block text-sm font-semibold text-slate-300">Preview gallery links</label>
+                  <div className="grid gap-3 md:grid-cols-3">
+                    {vehicleForm.gallery.map((image, index) => (
+                      <input
+                        key={`gallery-${index}`}
+                        value={image}
+                        onChange={(event) => handleVehicleGalleryChange(index, event.target.value)}
+                        placeholder={`Preview image ${index + 1} URL`}
+                        className="w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm text-white outline-none"
+                      />
+                    ))}
+                  </div>
+                </div>
                 <div>
                   <label className="mb-2 block text-sm font-semibold text-slate-300">Price per day</label>
                   <input
@@ -822,7 +960,7 @@ export default function Admin() {
                     ))}
                   </div>
                 </div>
-                <div className="md:col-span-2">
+                <div className="md:col-span-2 flex flex-wrap gap-3">
                   <button
                     type="submit"
                     disabled={isSavingVehicle}
@@ -831,8 +969,52 @@ export default function Admin() {
                     <Save className="h-4 w-4" />
                     {isSavingVehicle ? "Saving..." : "Save vehicle details"}
                   </button>
+                  <button
+                    type="button"
+                    onClick={handleRemoveVehicle}
+                    disabled={isRemovingVehicle || !selectedVehicleId}
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl bg-rose-500/15 px-5 py-3 text-sm font-bold text-rose-200 ring-1 ring-rose-500/25 transition-transform hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <XCircle className="h-4 w-4" />
+                    {isRemovingVehicle ? "Removing..." : "Remove vehicle"}
+                  </button>
                 </div>
               </form>
+
+              <div className="mt-8">
+                <div className="mb-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">Preview</p>
+                  <h3 className="mt-2 text-xl font-black text-white">Photo layout</h3>
+                </div>
+
+                <div className="grid gap-4 lg:grid-cols-[1.4fr_0.8fr]">
+                  <div className="overflow-hidden rounded-[1.75rem] border border-white/10 bg-slate-950/60">
+                    <img
+                      src={
+                        vehicleForm.gallery[0] ||
+                        "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1400&q=80"
+                      }
+                      alt={vehicleForm.name || "Vehicle preview"}
+                      className="h-full min-h-[260px] w-full object-cover"
+                    />
+                  </div>
+
+                  <div className="grid gap-4">
+                    {vehicleForm.gallery.slice(1).map((image, index) => (
+                      <div key={`preview-${index}`} className="overflow-hidden rounded-[1.5rem] border border-white/10 bg-slate-950/60">
+                        <img
+                          src={
+                            image ||
+                            "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=1200&q=80"
+                          }
+                          alt={`Vehicle preview ${index + 2}`}
+                          className="h-full min-h-[122px] w-full object-cover"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         ) : null}
