@@ -1,11 +1,11 @@
 import { useContext, useEffect, useMemo, useState } from "react";
 import { motion } from "motion/react";
-import { CalendarDays, DollarSign, Heart, LayoutDashboard, UserRound } from "lucide-react";
+import { AlertTriangle, CalendarDays, DollarSign, Heart, LayoutDashboard, UserRound } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { AuthContext } from "../context/AuthContext";
-import { fetchUserBookings } from "../lib/rentals";
-import { getSavedVehicleIds, getVehicleById, getVehicles, type Booking } from "../lib/vrms";
+import { fetchUserBookings, fetchUserPenalties } from "../lib/rentals";
+import { getSavedVehicleIds, getVehicleById, getVehicles, type Booking, type Penalty } from "../lib/vrms";
 
 type DashboardTab = "home" | "collections" | "bookings";
 
@@ -29,6 +29,7 @@ export default function Dashboard() {
   const activeTab = (tab as DashboardTab | undefined) || "home";
   const vehicles = useMemo(() => getVehicles(), []);
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [penalties, setPenalties] = useState<Penalty[]>([]);
   const [bookingsLoading, setBookingsLoading] = useState(true);
 
   useEffect(() => {
@@ -42,10 +43,14 @@ export default function Dashboard() {
 
     const loadBookings = async () => {
       try {
-        const nextBookings = await fetchUserBookings(userToken);
+        const [nextBookings, nextPenalties] = await Promise.all([
+          fetchUserBookings(userToken),
+          fetchUserPenalties(userToken),
+        ]);
 
         if (!cancelled) {
           setBookings(nextBookings);
+          setPenalties(nextPenalties);
         }
       } catch (error: any) {
         if (!cancelled) {
@@ -56,6 +61,7 @@ export default function Dashboard() {
           }
 
           setBookings([]);
+          setPenalties([]);
         }
       } finally {
         if (!cancelled) {
@@ -83,9 +89,12 @@ export default function Dashboard() {
     const totalTrips = bookings.length;
     const spent = bookings.reduce((sum, booking) => sum + (booking.totalPrice || 0), 0);
     const savedVehicles = savedIds.length;
+    const pendingPenaltyAmount = penalties
+      .filter((penalty) => penalty.status === "pending")
+      .reduce((sum, penalty) => sum + penalty.amount, 0);
 
-    return { totalTrips, spent, savedVehicles };
-  }, [bookings, savedIds.length]);
+    return { totalTrips, spent, savedVehicles, pendingPenaltyAmount };
+  }, [bookings, penalties, savedIds.length]);
 
   const recentActivity = useMemo(() => {
     const activity = bookings.slice(0, 5).map((booking) => {
@@ -183,7 +192,7 @@ export default function Dashboard() {
             </div>
           </motion.section>
 
-          <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
             <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-lg hover:shadow-slate-900/5">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-semibold text-slate-600">Total Trips</p>
@@ -210,6 +219,15 @@ export default function Dashboard() {
                 </div>
               </div>
               <p className="mt-3 text-3xl font-black text-slate-900">{stats.savedVehicles}</p>
+            </div>
+            <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-lg hover:shadow-slate-900/5">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold text-slate-600">Pending Penalties</p>
+                <div className="rounded-2xl bg-amber-50 p-2 text-amber-600">
+                  <AlertTriangle className="h-4 w-4" />
+                </div>
+              </div>
+              <p className="mt-3 text-3xl font-black text-slate-900">Rs. {formatInr(stats.pendingPenaltyAmount)}</p>
             </div>
           </div>
 
@@ -241,6 +259,56 @@ export default function Dashboard() {
               ))}
             </div>
           </motion.section>
+
+          {penalties.length > 0 ? (
+            <motion.section
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.35, ease: "easeOut", delay: 0.12 }}
+              className="rounded-[2rem] border border-slate-200 bg-white p-7 shadow-sm lg:col-span-3"
+            >
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">Penalties</p>
+                  <h3 className="mt-2 text-2xl font-black text-slate-900">Charges and fines</h3>
+                </div>
+                <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">
+                  {penalties.length} record{penalties.length === 1 ? "" : "s"}
+                </span>
+              </div>
+
+              <div className="mt-6 grid gap-4 lg:grid-cols-2">
+                {penalties.map((penalty) => {
+                  const vehicle = getVehicleById(penalty.vehicleId);
+                  return (
+                    <div key={penalty.id} className="rounded-[1.5rem] border border-slate-200 bg-slate-50 px-5 py-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="font-bold text-slate-900">{vehicle?.name || penalty.vehicleId}</p>
+                          <p className="mt-1 text-sm text-slate-500">{penalty.reason}</p>
+                        </div>
+                        <span
+                          className={`rounded-full px-3 py-1 text-xs font-bold ${
+                            penalty.status === "paid"
+                              ? "bg-emerald-100 text-emerald-700"
+                              : penalty.status === "waived"
+                                ? "bg-slate-200 text-slate-700"
+                                : "bg-amber-100 text-amber-700"
+                          }`}
+                        >
+                          {penalty.status}
+                        </span>
+                      </div>
+                      <div className="mt-3 flex items-center justify-between gap-3 text-sm">
+                        <span className="text-slate-500">{new Date(penalty.createdAt).toLocaleDateString()}</span>
+                        <span className="font-bold text-slate-900">Rs. {formatInr(penalty.amount)}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </motion.section>
+          ) : null}
         </div>
       )}
 

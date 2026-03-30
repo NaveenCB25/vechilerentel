@@ -39,10 +39,23 @@ type StoredLicense = {
   submittedAt: string;
 };
 
+type StoredPenalty = {
+  _id: string;
+  bookingId: string;
+  userId: string;
+  userEmail: string;
+  vehicleId: string;
+  reason: string;
+  amount: number;
+  status: "pending" | "paid" | "waived";
+  createdAt: string;
+};
+
 type StoreShape = {
   users: StoredUser[];
   bookings: StoredBooking[];
   licenses: StoredLicense[];
+  penalties: StoredPenalty[];
 };
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -57,7 +70,7 @@ function ensureStoreFile() {
   if (!fs.existsSync(storeFile)) {
     fs.writeFileSync(
       storeFile,
-      JSON.stringify({ users: [], bookings: [], licenses: [] } satisfies StoreShape, null, 2),
+      JSON.stringify({ users: [], bookings: [], licenses: [], penalties: [] } satisfies StoreShape, null, 2),
       "utf-8",
     );
   }
@@ -74,9 +87,10 @@ function loadStore(): StoreShape {
       users: Array.isArray(parsed.users) ? parsed.users : [],
       bookings: Array.isArray(parsed.bookings) ? parsed.bookings : [],
       licenses: Array.isArray(parsed.licenses) ? parsed.licenses : [],
+      penalties: Array.isArray(parsed.penalties) ? parsed.penalties : [],
     };
   } catch {
-    return { users: [], bookings: [], licenses: [] };
+    return { users: [], bookings: [], licenses: [], penalties: [] };
   }
 }
 
@@ -173,6 +187,36 @@ export function writeFallbackLicenses(
     licenses: licenses.map((license) => ({
       ...license,
       submittedAt: new Date(license.submittedAt).toISOString(),
+    })),
+  };
+  writeStore();
+}
+
+export function readFallbackPenalties() {
+  return store.penalties.map((penalty) => ({
+    ...penalty,
+    createdAt: new Date(penalty.createdAt),
+  }));
+}
+
+export function writeFallbackPenalties(
+  penalties: Array<{
+    _id: string;
+    bookingId: string;
+    userId: string;
+    userEmail: string;
+    vehicleId: string;
+    reason: string;
+    amount: number;
+    status: "pending" | "paid" | "waived";
+    createdAt: Date | string;
+  }>,
+) {
+  store = {
+    ...store,
+    penalties: penalties.map((penalty) => ({
+      ...penalty,
+      createdAt: new Date(penalty.createdAt).toISOString(),
     })),
   };
   writeStore();

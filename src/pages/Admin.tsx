@@ -1,12 +1,15 @@
-import { useContext, useEffect, useMemo, useState } from "react";
+import { useContext, useEffect, useMemo, useState, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { motion } from "motion/react";
 import {
+  AlertTriangle,
   BadgeCheck,
   CalendarDays,
   FileCheck2,
+  IndianRupee,
   LoaderCircle,
   LogOut,
+  PlusCircle,
   RefreshCw,
   Users,
   XCircle,
@@ -14,27 +17,33 @@ import {
 
 import { AuthContext } from "../context/AuthContext";
 import {
+  createAdminPenalty,
   fetchAdminRentalOverview,
   updateAdminBookingStatus,
   updateAdminLicenseStatus,
+  updateAdminPenaltyStatus,
 } from "../lib/rentals";
-import { getVehicleById, type Booking, type DrivingLicense, type LicenseStatus } from "../lib/vrms";
+import { getVehicleById, type Booking, type DrivingLicense, type LicenseStatus, type Penalty, type PenaltyStatus } from "../lib/vrms";
 
-type AdminTab = "overview" | "bookings" | "licenses";
+type AdminTab = "overview" | "bookings" | "licenses" | "penalties";
 
-const VALID_TABS: AdminTab[] = ["overview", "bookings", "licenses"];
+const VALID_TABS: AdminTab[] = ["overview", "bookings", "licenses", "penalties"];
 
 function formatInr(value: number) {
   return value.toLocaleString("en-IN");
 }
 
 function badgeClasses(status: string) {
-  if (status === "approved" || status === "active" || status === "completed") {
+  if (status === "approved" || status === "active" || status === "completed" || status === "paid") {
     return "bg-emerald-500/15 text-emerald-200 ring-1 ring-emerald-500/25";
   }
 
   if (status === "pending") {
     return "bg-sky-500/15 text-sky-200 ring-1 ring-sky-500/25";
+  }
+
+  if (status === "waived") {
+    return "bg-amber-500/15 text-amber-200 ring-1 ring-amber-500/25";
   }
 
   return "bg-rose-500/15 text-rose-200 ring-1 ring-rose-500/25";
@@ -48,11 +57,19 @@ export default function Admin() {
 
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [licenses, setLicenses] = useState<DrivingLicense[]>([]);
+  const [penalties, setPenalties] = useState<Penalty[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [updatingBookingId, setUpdatingBookingId] = useState<string | null>(null);
   const [updatingLicenseId, setUpdatingLicenseId] = useState<string | null>(null);
+  const [updatingPenaltyId, setUpdatingPenaltyId] = useState<string | null>(null);
+  const [isCreatingPenalty, setIsCreatingPenalty] = useState(false);
+  const [penaltyForm, setPenaltyForm] = useState({
+    bookingId: "",
+    reason: "",
+    amount: "",
+  });
 
   const loadOverview = async (token: string, showSpinner: boolean) => {
     if (showSpinner) {
@@ -67,6 +84,7 @@ export default function Admin() {
       const data = await fetchAdminRentalOverview(token);
       setBookings(data.bookings);
       setLicenses(data.licenses);
+      setPenalties(data.penalties);
     } catch (nextError: any) {
       const message = nextError?.message || "Failed to load admin dashboard";
       setError(message);
@@ -101,11 +119,14 @@ export default function Admin() {
   const revenue = useMemo(() => bookings.reduce((sum, booking) => sum + booking.totalPrice, 0), [bookings]);
   const pendingBookings = useMemo(() => bookings.filter((booking) => booking.status === "pending").length, [bookings]);
   const pendingLicenses = useMemo(() => licenses.filter((license) => license.status === "pending").length, [licenses]);
+  const pendingPenalties = useMemo(() => penalties.filter((penalty) => penalty.status === "pending").length, [penalties]);
+  const totalPenaltyAmount = useMemo(() => penalties.reduce((sum, penalty) => sum + penalty.amount, 0), [penalties]);
 
   const tabs: Array<{ key: AdminTab; label: string; icon: typeof Users }> = [
     { key: "overview", label: "Overview", icon: Users },
     { key: "bookings", label: "Bookings", icon: CalendarDays },
     { key: "licenses", label: "Licenses", icon: FileCheck2 },
+    { key: "penalties", label: "Penalties", icon: AlertTriangle },
   ];
 
   const handleBookingStatus = async (bookingId: string, status: Booking["status"]) => {
@@ -144,6 +165,51 @@ export default function Admin() {
     }
   };
 
+  const handlePenaltyStatus = async (penaltyId: string, status: PenaltyStatus) => {
+    if (!adminToken) {
+      return;
+    }
+
+    setUpdatingPenaltyId(penaltyId);
+    setError("");
+
+    try {
+      const { penalty } = await updateAdminPenaltyStatus(adminToken, penaltyId, status);
+      setPenalties((current) => current.map((item) => (item.id === penaltyId ? penalty : item)));
+    } catch (nextError: any) {
+      setError(nextError?.message || "Failed to update penalty status");
+    } finally {
+      setUpdatingPenaltyId(null);
+    }
+  };
+
+  const handleCreatePenalty = async (event: FormEvent) => {
+    event.preventDefault();
+
+    if (!adminToken) {
+      return;
+    }
+
+    setIsCreatingPenalty(true);
+    setError("");
+
+    try {
+      const amount = Number(penaltyForm.amount);
+      const { penalty } = await createAdminPenalty(adminToken, {
+        bookingId: penaltyForm.bookingId,
+        reason: penaltyForm.reason.trim(),
+        amount,
+      });
+
+      setPenalties((current) => [penalty, ...current]);
+      setPenaltyForm({ bookingId: "", reason: "", amount: "" });
+    } catch (nextError: any) {
+      setError(nextError?.message || "Failed to create penalty");
+    } finally {
+      setIsCreatingPenalty(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-950 px-4 text-white">
@@ -162,7 +228,7 @@ export default function Admin() {
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">Admin</p>
             <h1 className="mt-2 text-3xl font-black tracking-tight text-white">Dashboard</h1>
-            <p className="mt-1 text-sm text-slate-400">Manage bookings and license approvals.</p>
+            <p className="mt-1 text-sm text-slate-400">Manage bookings, license approvals, and user penalties.</p>
           </div>
 
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -199,7 +265,7 @@ export default function Admin() {
           </div>
         ) : null}
 
-        <div className="mb-10 grid grid-cols-1 gap-3 rounded-[2rem] border border-white/10 bg-white/5 p-2 sm:grid-cols-3 sm:gap-4">
+        <div className="mb-10 grid grid-cols-1 gap-3 rounded-[2rem] border border-white/10 bg-white/5 p-2 sm:grid-cols-4 sm:gap-4">
           {tabs.map((item) => {
             const Icon = item.icon;
             const selected = item.key === activeTab;
@@ -222,12 +288,13 @@ export default function Admin() {
 
         {activeTab === "overview" ? (
           <div className="grid gap-6">
-            <div className="grid gap-5 lg:grid-cols-4">
+            <div className="grid gap-5 lg:grid-cols-5">
               {[
                 { label: "Total Bookings", value: bookings.length, icon: Users },
                 { label: "Pending Bookings", value: pendingBookings, icon: CalendarDays },
                 { label: "Pending Licenses", value: pendingLicenses, icon: FileCheck2 },
-                { label: "Revenue", value: `Rs. ${formatInr(revenue)}`, icon: BadgeCheck },
+                { label: "Pending Penalties", value: pendingPenalties, icon: AlertTriangle },
+                { label: "Revenue", value: `Rs. ${formatInr(revenue)}`, icon: IndianRupee },
               ].map((card) => {
                 const Icon = card.icon;
 
@@ -251,85 +318,48 @@ export default function Admin() {
               })}
             </div>
 
-            <div className="grid gap-6 lg:grid-cols-2">
-              <div className="rounded-[2rem] border border-white/10 bg-white/5 p-6">
-                <div className="mb-5 flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">Latest</p>
-                    <h2 className="mt-2 text-2xl font-black">Bookings</h2>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => navigate("/admin/bookings")}
-                    className="rounded-2xl bg-white/10 px-4 py-2 text-xs font-bold text-white ring-1 ring-white/10 hover:bg-white/15"
-                  >
-                    View all
-                  </button>
-                </div>
+            <div className="grid gap-6 xl:grid-cols-3">
+              <OverviewList
+                title="Bookings"
+                onViewAll={() => navigate("/admin/bookings")}
+                items={bookings.slice(0, 5).map((booking) => {
+                  const vehicle = getVehicleById(booking.vehicleId);
+                  return {
+                    id: booking.id,
+                    title: vehicle?.name || booking.vehicleId,
+                    subtitle: booking.userEmail,
+                    status: booking.status,
+                  };
+                })}
+                emptyLabel="No bookings yet."
+              />
 
-                <div className="space-y-3">
-                  {bookings.slice(0, 5).map((booking) => {
-                    const vehicle = getVehicleById(booking.vehicleId);
-                    return (
-                      <div key={booking.id} className="rounded-[1.5rem] border border-white/10 bg-slate-950/70 p-4">
-                        <div className="flex items-center justify-between gap-3">
-                          <div>
-                            <p className="font-bold text-white">{vehicle?.name || booking.vehicleId}</p>
-                            <p className="mt-1 text-xs text-slate-400">{booking.userEmail}</p>
-                          </div>
-                          <span className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${badgeClasses(booking.status)}`}>
-                            {booking.status}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
+              <OverviewList
+                title="License Checks"
+                onViewAll={() => navigate("/admin/licenses")}
+                items={licenses.slice(0, 5).map((license) => ({
+                  id: license.id,
+                  title: license.fullName,
+                  subtitle: license.userEmail,
+                  status: license.status,
+                }))}
+                emptyLabel="No license submissions yet."
+              />
 
-                  {bookings.length === 0 ? (
-                    <div className="rounded-[1.5rem] border border-dashed border-white/10 px-4 py-10 text-center text-sm font-semibold text-slate-400">
-                      No bookings yet.
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-
-              <div className="rounded-[2rem] border border-white/10 bg-white/5 p-6">
-                <div className="mb-5 flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">Latest</p>
-                    <h2 className="mt-2 text-2xl font-black">License Checks</h2>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => navigate("/admin/licenses")}
-                    className="rounded-2xl bg-white/10 px-4 py-2 text-xs font-bold text-white ring-1 ring-white/10 hover:bg-white/15"
-                  >
-                    View all
-                  </button>
-                </div>
-
-                <div className="space-y-3">
-                  {licenses.slice(0, 5).map((license) => (
-                    <div key={license.id} className="rounded-[1.5rem] border border-white/10 bg-slate-950/70 p-4">
-                      <div className="flex items-center justify-between gap-3">
-                        <div>
-                          <p className="font-bold text-white">{license.fullName}</p>
-                          <p className="mt-1 text-xs text-slate-400">{license.userEmail}</p>
-                        </div>
-                        <span className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${badgeClasses(license.status)}`}>
-                          {license.status}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-
-                  {licenses.length === 0 ? (
-                    <div className="rounded-[1.5rem] border border-dashed border-white/10 px-4 py-10 text-center text-sm font-semibold text-slate-400">
-                      No license submissions yet.
-                    </div>
-                  ) : null}
-                </div>
-              </div>
+              <OverviewList
+                title="Penalties"
+                onViewAll={() => navigate("/admin/penalties")}
+                items={penalties.slice(0, 5).map((penalty) => {
+                  const vehicle = getVehicleById(penalty.vehicleId);
+                  return {
+                    id: penalty.id,
+                    title: penalty.reason,
+                    subtitle: `${penalty.userEmail} | ${vehicle?.name || penalty.vehicleId}`,
+                    status: penalty.status,
+                  };
+                })}
+                emptyLabel="No penalties issued yet."
+              />
             </div>
           </div>
         ) : null}
@@ -478,6 +508,194 @@ export default function Admin() {
                 </tbody>
               </table>
             </div>
+          </div>
+        ) : null}
+
+        {activeTab === "penalties" ? (
+          <div className="grid gap-6 xl:grid-cols-[420px_1fr]">
+            <div className="rounded-[2rem] border border-white/10 bg-white/5 p-6">
+              <div className="mb-6">
+                <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">Issue Penalty</p>
+                <h2 className="mt-2 text-2xl font-black">Create a penalty</h2>
+                <p className="mt-2 text-sm text-slate-400">Select a booking, add a reason, and assign the amount.</p>
+              </div>
+
+              <form className="space-y-4" onSubmit={handleCreatePenalty}>
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-slate-300">Booking</label>
+                  <select
+                    value={penaltyForm.bookingId}
+                    onChange={(event) => setPenaltyForm((current) => ({ ...current, bookingId: event.target.value }))}
+                    className="w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm text-white outline-none"
+                    required
+                  >
+                    <option value="">Select a booking</option>
+                    {bookings.map((booking) => {
+                      const vehicle = getVehicleById(booking.vehicleId);
+                      return (
+                        <option key={booking.id} value={booking.id}>
+                          {booking.userEmail} - {vehicle?.name || booking.vehicleId}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-slate-300">Reason</label>
+                  <textarea
+                    value={penaltyForm.reason}
+                    onChange={(event) => setPenaltyForm((current) => ({ ...current, reason: event.target.value }))}
+                    className="min-h-28 w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm text-white outline-none"
+                    placeholder="Late return, damage, cleanup, traffic fine..."
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-slate-300">Amount</label>
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={penaltyForm.amount}
+                    onChange={(event) => setPenaltyForm((current) => ({ ...current, amount: event.target.value }))}
+                    className="w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm text-white outline-none"
+                    placeholder="2500"
+                    required
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isCreatingPenalty}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-amber-500/15 px-5 py-3 text-sm font-bold text-amber-200 ring-1 ring-amber-500/25 transition-transform hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <PlusCircle className="h-4 w-4" />
+                  {isCreatingPenalty ? "Creating..." : "Create penalty"}
+                </button>
+              </form>
+
+              <div className="mt-6 rounded-[1.5rem] border border-white/10 bg-slate-950/60 px-4 py-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">Summary</p>
+                <p className="mt-3 text-2xl font-black text-white">Rs. {formatInr(totalPenaltyAmount)}</p>
+                <p className="mt-1 text-sm text-slate-400">Total penalties issued</p>
+              </div>
+            </div>
+
+            <div className="rounded-[2rem] border border-white/10 bg-white/5 p-6">
+              <div className="mb-6">
+                <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">Penalties</p>
+                <h2 className="mt-2 text-2xl font-black">Manage user penalties</h2>
+              </div>
+
+              <div className="overflow-hidden rounded-[1.5rem] border border-white/10">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-white/5 text-slate-300">
+                    <tr>
+                      <th className="px-5 py-4 font-semibold">User</th>
+                      <th className="px-5 py-4 font-semibold">Vehicle</th>
+                      <th className="px-5 py-4 font-semibold">Reason</th>
+                      <th className="px-5 py-4 font-semibold">Amount</th>
+                      <th className="px-5 py-4 font-semibold">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/10">
+                    {penalties.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="px-5 py-10 text-center text-slate-400">
+                          No penalties issued yet.
+                        </td>
+                      </tr>
+                    ) : (
+                      penalties.map((penalty) => {
+                        const vehicle = getVehicleById(penalty.vehicleId);
+                        return (
+                          <tr key={penalty.id} className="hover:bg-white/5">
+                            <td className="px-5 py-4">
+                              <p className="font-semibold text-white">{penalty.userEmail}</p>
+                              <p className="text-xs text-slate-400">{new Date(penalty.createdAt).toLocaleDateString()}</p>
+                            </td>
+                            <td className="px-5 py-4 text-slate-200">{vehicle?.name || penalty.vehicleId}</td>
+                            <td className="px-5 py-4">
+                              <p className="font-semibold text-white">{penalty.reason}</p>
+                              <p className="text-xs text-slate-400">Booking: {penalty.bookingId}</p>
+                            </td>
+                            <td className="px-5 py-4 text-slate-200">Rs. {formatInr(penalty.amount)}</td>
+                            <td className="px-5 py-4">
+                              <select
+                                value={penalty.status}
+                                disabled={updatingPenaltyId === penalty.id}
+                                onChange={(event) => {
+                                  void handlePenaltyStatus(penalty.id, event.target.value as PenaltyStatus);
+                                }}
+                                className={`w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-xs font-bold outline-none disabled:cursor-not-allowed disabled:opacity-60 ${badgeClasses(penalty.status)}`}
+                              >
+                                <option value="pending">pending</option>
+                                <option value="paid">paid</option>
+                                <option value="waived">waived</option>
+                              </select>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function OverviewList({
+  title,
+  items,
+  emptyLabel,
+  onViewAll,
+}: {
+  title: string;
+  items: Array<{ id: string; title: string; subtitle: string; status: string }>;
+  emptyLabel: string;
+  onViewAll: () => void;
+}) {
+  return (
+    <div className="rounded-[2rem] border border-white/10 bg-white/5 p-6">
+      <div className="mb-5 flex items-center justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">Latest</p>
+          <h2 className="mt-2 text-2xl font-black">{title}</h2>
+        </div>
+        <button
+          type="button"
+          onClick={onViewAll}
+          className="rounded-2xl bg-white/10 px-4 py-2 text-xs font-bold text-white ring-1 ring-white/10 hover:bg-white/15"
+        >
+          View all
+        </button>
+      </div>
+
+      <div className="space-y-3">
+        {items.map((item) => (
+          <div key={item.id} className="rounded-[1.5rem] border border-white/10 bg-slate-950/70 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="font-bold text-white">{item.title}</p>
+                <p className="mt-1 text-xs text-slate-400">{item.subtitle}</p>
+              </div>
+              <span className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${badgeClasses(item.status)}`}>
+                {item.status}
+              </span>
+            </div>
+          </div>
+        ))}
+
+        {items.length === 0 ? (
+          <div className="rounded-[1.5rem] border border-dashed border-white/10 px-4 py-10 text-center text-sm font-semibold text-slate-400">
+            {emptyLabel}
           </div>
         ) : null}
       </div>

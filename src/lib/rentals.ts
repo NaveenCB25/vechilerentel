@@ -1,6 +1,6 @@
 import { API_BASE_URL } from "./api";
 import { createAuthHeaders } from "./auth";
-import type { Booking, DrivingLicense, LicenseStatus, PaymentMethod } from "./vrms";
+import type { Booking, DrivingLicense, LicenseStatus, PaymentMethod, Penalty, PenaltyStatus } from "./vrms";
 
 export type RentalSubmissionPayload = {
   booking: {
@@ -20,7 +20,7 @@ export type RentalSubmissionPayload = {
 };
 
 type ApiSuccessResponse<T> = T & { success: true };
-type AdminRentalOverview = ApiSuccessResponse<{ bookings: Booking[]; licenses: DrivingLicense[] }>;
+type AdminRentalOverview = ApiSuccessResponse<{ bookings: Booking[]; licenses: DrivingLicense[]; penalties: Penalty[] }>;
 
 async function parseApiResponse<T>(response: Response): Promise<T> {
   const data = await response.json().catch(() => null);
@@ -61,6 +61,15 @@ export async function fetchUserBookings(token: string) {
   return data.bookings;
 }
 
+export async function fetchUserPenalties(token: string) {
+  const response = await fetch(`${API_BASE_URL}/api/rentals/mine/penalties`, {
+    headers: createAuthHeaders(token),
+  });
+
+  const data = await parseApiResponse<ApiSuccessResponse<{ penalties: Penalty[] }>>(response);
+  return data.penalties;
+}
+
 export async function fetchAdminRentalOverview(token: string) {
   const response = await fetch(`${API_BASE_URL}/api/rentals/admin/overview`, {
     headers: createAuthHeaders(token),
@@ -93,4 +102,33 @@ export async function updateAdminLicenseStatus(token: string, licenseId: string,
   });
 
   return parseApiResponse<ApiSuccessResponse<{ license: DrivingLicense }>>(response);
+}
+
+export async function createAdminPenalty(
+  token: string,
+  payload: { bookingId: string; reason: string; amount: number },
+) {
+  const response = await fetch(`${API_BASE_URL}/api/rentals/admin/penalties`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...createAuthHeaders(token),
+    },
+    body: JSON.stringify(payload),
+  });
+
+  return parseApiResponse<ApiSuccessResponse<{ penalty: Penalty }>>(response);
+}
+
+export async function updateAdminPenaltyStatus(token: string, penaltyId: string, status: PenaltyStatus) {
+  const response = await fetch(`${API_BASE_URL}/api/rentals/admin/penalties/${penaltyId}/status`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      ...createAuthHeaders(token),
+    },
+    body: JSON.stringify({ status }),
+  });
+
+  return parseApiResponse<ApiSuccessResponse<{ penalty: Penalty }>>(response);
 }

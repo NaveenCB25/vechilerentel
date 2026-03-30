@@ -1,16 +1,25 @@
 import type { Response } from "express";
 import mongoose from "mongoose";
 
-import { readFallbackBookings, readFallbackLicenses, writeFallbackBookings, writeFallbackLicenses } from "../lib/fallbackStore.ts";
+import {
+  readFallbackBookings,
+  readFallbackLicenses,
+  readFallbackPenalties,
+  writeFallbackBookings,
+  writeFallbackLicenses,
+  writeFallbackPenalties,
+} from "../lib/fallbackStore.ts";
 import { sendBookingConfirmationEmail } from "../lib/mailer.ts";
 import type { AuthenticatedRequest } from "../middleware/authMiddleware.ts";
 import { BookingModel } from "../models/Booking.ts";
 import { LicenseSubmissionModel } from "../models/LicenseSubmission.ts";
+import { PenaltyModel } from "../models/Penalty.ts";
 
 type BookingStatus = "pending" | "active" | "completed" | "cancelled";
 type LicenseStatus = "pending" | "approved" | "rejected";
 type PaymentMethod = "upi" | "card" | "netbanking" | "cash";
 type PaymentStatus = "pending" | "paid";
+type PenaltyStatus = "pending" | "paid" | "waived";
 
 type MemoryBooking = {
   _id: string;
@@ -39,6 +48,18 @@ type MemoryLicenseSubmission = {
   submittedAt: Date;
 };
 
+type MemoryPenalty = {
+  _id: string;
+  bookingId: string;
+  userId: string;
+  userEmail: string;
+  vehicleId: string;
+  reason: string;
+  amount: number;
+  status: PenaltyStatus;
+  createdAt: Date;
+};
+
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
@@ -57,6 +78,10 @@ function isValidPaymentMethod(value: unknown): value is PaymentMethod {
 
 function isValidLicenseStatus(value: unknown): value is LicenseStatus {
   return value === "pending" || value === "approved" || value === "rejected";
+}
+
+function isValidPenaltyStatus(value: unknown): value is PenaltyStatus {
+  return value === "pending" || value === "paid" || value === "waived";
 }
 
 function formatVehicleLabel(vehicleId: string) {
@@ -120,6 +145,30 @@ function toPublicLicenseSubmission(license: {
   };
 }
 
+function toPublicPenalty(penalty: {
+  _id: string | mongoose.Types.ObjectId;
+  bookingId: string;
+  userId: string;
+  userEmail: string;
+  vehicleId: string;
+  reason: string;
+  amount: number;
+  status: PenaltyStatus;
+  createdAt: Date | string;
+}) {
+  return {
+    id: penalty._id.toString(),
+    bookingId: penalty.bookingId,
+    userId: penalty.userId,
+    userEmail: penalty.userEmail,
+    vehicleId: penalty.vehicleId,
+    reason: penalty.reason,
+    amount: penalty.amount,
+    status: penalty.status,
+    createdAt: new Date(penalty.createdAt).toISOString(),
+  };
+}
+
 async function createBookingRecord(data: Omit<MemoryBooking, "_id" | "createdAt">) {
   if (mongoose.connection.readyState === 1) {
     return BookingModel.create(data);
@@ -152,6 +201,22 @@ async function createLicenseSubmissionRecord(data: Omit<MemoryLicenseSubmission,
   return licenseSubmission;
 }
 
+async function createPenaltyRecord(data: Omit<MemoryPenalty, "_id" | "createdAt">) {
+  if (mongoose.connection.readyState === 1) {
+    return PenaltyModel.create(data);
+  }
+
+  const penalty: MemoryPenalty = {
+    _id: new mongoose.Types.ObjectId().toString(),
+    createdAt: new Date(),
+    ...data,
+  };
+  const nextPenalties = readFallbackPenalties();
+  nextPenalties.unshift(penalty);
+  writeFallbackPenalties(nextPenalties);
+  return penalty;
+}
+
 async function getBookingsForUser(userId: string, userEmail: string) {
   if (mongoose.connection.readyState === 1) {
     return BookingModel.find({ $or: [{ userId }, { userEmail }] }).sort({ createdAt: -1 });
@@ -176,6 +241,32 @@ async function getAllLicenseSubmissions() {
   }
 
   return readFallbackLicenses().sort((left, right) => right.submittedAt.getTime() - left.submittedAt.getTime());
+}
+
+async function getPenaltiesForUser(userId: string, userEmail: string) {
+  if (mongoose.connection.readyState === 1) {
+    return PenaltyModel.find({ $or: [{ userId }, { userEmail }] }).sort({ createdAt: -1 });
+  }
+
+  return readFallbackPenalties()
+    .filter((penalty) => penalty.userId === userId || penalty.userEmail === userEmail)
+    .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime());
+}
+
+async function getAllPenalties() {
+  if (mongoose.connection.readyState === 1) {
+    return PenaltyModel.find().sort({ createdAt: -1 });
+  }
+
+  return readFallbackPenalties().sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime());
+}
+
+async function getBookingRecordById(bookingId: string) {
+  if (mongoose.connection.readyState === 1) {
+    return BookingModel.findById(bookingId);
+  }
+
+  return readFallbackBookings().find((item) => item._id === bookingId) || null;
 }
 
 async function updateBookingStatusRecord(bookingId: string, status: BookingStatus) {
@@ -208,6 +299,22 @@ async function updateLicenseStatusRecord(licenseId: string, status: LicenseStatu
   licenseSubmission.status = status;
   writeFallbackLicenses(nextLicenses);
   return licenseSubmission;
+}
+
+async function updatePenaltyStatusRecord(penaltyId: string, status: PenaltyStatus) {
+  if (mongoose.connection.readyState === 1) {
+    return PenaltyModel.findByIdAndUpdate(penaltyId, { status }, { new: true });
+  }
+
+  const nextPenalties = readFallbackPenalties();
+  const penalty = nextPenalties.find((item) => item._id === penaltyId);
+  if (!penalty) {
+    return null;
+  }
+
+  penalty.status = status;
+  writeFallbackPenalties(nextPenalties);
+  return penalty;
 }
 
 export const createRentalSubmission = async (req: AuthenticatedRequest, res: Response): Promise<any> => {
@@ -318,18 +425,67 @@ export const getCurrentUserBookings = async (req: AuthenticatedRequest, res: Res
   }
 };
 
+export const getCurrentUserPenalties = async (req: AuthenticatedRequest, res: Response): Promise<any> => {
+  try {
+    const userId = req.auth?.userId;
+    const userEmail = req.auth?.email;
+
+    if (!userId || !userEmail) {
+      return res.status(401).json({ success: false, error: "Invalid session" });
+    }
+
+    const penalties = await getPenaltiesForUser(userId, userEmail);
+    return res.json({ success: true, penalties: penalties.map(toPublicPenalty) });
+  } catch (error: any) {
+    console.error("Get user penalties error:", error?.message || error);
+    return res.status(500).json({ success: false, error: "Failed to load penalties" });
+  }
+};
+
 export const getAdminRentalOverview = async (_req: AuthenticatedRequest, res: Response): Promise<any> => {
   try {
-    const [bookings, licenses] = await Promise.all([getAllBookings(), getAllLicenseSubmissions()]);
+    const [bookings, licenses, penalties] = await Promise.all([getAllBookings(), getAllLicenseSubmissions(), getAllPenalties()]);
 
     return res.json({
       success: true,
       bookings: bookings.map(toPublicBooking),
       licenses: licenses.map(toPublicLicenseSubmission),
+      penalties: penalties.map(toPublicPenalty),
     });
   } catch (error: any) {
     console.error("Get admin rental overview error:", error?.message || error);
     return res.status(500).json({ success: false, error: "Failed to load admin overview" });
+  }
+};
+
+export const createAdminPenalty = async (req: AuthenticatedRequest, res: Response): Promise<any> => {
+  try {
+    const { bookingId, reason, amount } = req.body ?? {};
+
+    if (!isNonEmptyString(bookingId) || !isNonEmptyString(reason) || typeof amount !== "number" || amount <= 0) {
+      return res.status(400).json({ success: false, error: "Booking, reason, and a valid amount are required" });
+    }
+
+    const booking = await getBookingRecordById(bookingId);
+
+    if (!booking) {
+      return res.status(404).json({ success: false, error: "Booking not found" });
+    }
+
+    const penalty = await createPenaltyRecord({
+      bookingId: booking._id.toString(),
+      userId: booking.userId,
+      userEmail: booking.userEmail,
+      vehicleId: booking.vehicleId,
+      reason: reason.trim(),
+      amount,
+      status: "pending",
+    });
+
+    return res.status(201).json({ success: true, penalty: toPublicPenalty(penalty) });
+  } catch (error: any) {
+    console.error("Create admin penalty error:", error?.message || error);
+    return res.status(500).json({ success: false, error: "Failed to create penalty" });
   }
 };
 
@@ -372,5 +528,26 @@ export const updateAdminLicenseStatus = async (req: AuthenticatedRequest, res: R
   } catch (error: any) {
     console.error("Update license status error:", error?.message || error);
     return res.status(500).json({ success: false, error: "Failed to update license status" });
+  }
+};
+
+export const updateAdminPenaltyStatus = async (req: AuthenticatedRequest, res: Response): Promise<any> => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body ?? {};
+
+    if (!isNonEmptyString(id) || !isValidPenaltyStatus(status)) {
+      return res.status(400).json({ success: false, error: "A valid penalty status is required" });
+    }
+
+    const penalty = await updatePenaltyStatusRecord(id, status);
+    if (!penalty) {
+      return res.status(404).json({ success: false, error: "Penalty not found" });
+    }
+
+    return res.json({ success: true, penalty: toPublicPenalty(penalty) });
+  } catch (error: any) {
+    console.error("Update penalty status error:", error?.message || error);
+    return res.status(500).json({ success: false, error: "Failed to update penalty status" });
   }
 };

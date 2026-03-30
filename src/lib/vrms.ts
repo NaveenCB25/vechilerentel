@@ -42,6 +42,8 @@ export type PenaltyStatus = "pending" | "paid" | "waived";
 
 export type Penalty = {
   id: string;
+  bookingId: string;
+  userId?: string;
   userEmail: string;
   vehicleId: string;
   reason: string;
