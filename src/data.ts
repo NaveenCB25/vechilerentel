@@ -56,15 +56,15 @@ export const VEHICLES = [
 ];
 
 export const APP_INFO = {
-  name: "VRMS Pro",
-  tagline: "Premium Vehicle Rental Management",
+  name: "DreamCar",
+  tagline: "Premium Vehicle Rentals",
   address: "Digital Square, Silicon Valley",
   city: "Bangalore",
   state: "Karnataka",
   zip: "560001",
   country: "India",
   phone: "+91 80 4926 3820",
-  email: "support@vrmspro.com",
-  description: "VRMS Pro is a premium vehicle rental management platform offering a curated collection of luxury and performance vehicles with seamless booking and management."
+  email: "support@dreamcar.com",
+  description: "DreamCar is a premium vehicle rental platform offering a curated collection of luxury and performance vehicles with seamless booking, approvals, and customer communication."
 };
 

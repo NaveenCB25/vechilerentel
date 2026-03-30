@@ -1,7 +1,8 @@
 import { useContext, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
 import { ArrowLeft, BadgeCheck, LogOut, ShieldCheck, UserRound } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+
 import { AuthContext } from "../context/AuthContext";
 import { API_BASE_URL } from "../lib/api";
 import { createAuthHeaders } from "../lib/auth";
@@ -64,9 +65,11 @@ export default function Profile() {
   const name = user?.name || "User";
 
   const meta = useMemo(() => {
-    if (!email) return {};
-    const current = getUserMeta(email);
+    if (!email) {
+      return {};
+    }
 
+    const current = getUserMeta(email);
     if (!current.memberSince) {
       return setUserMeta(email, {
         memberSince: new Date().toISOString(),
@@ -83,7 +86,7 @@ export default function Profile() {
   }
 
   return (
-    <div className="min-h-[calc(100vh-80px)] px-4 pb-16 pt-10 sm:px-6 lg:px-8">
+    <div className="min-h-[calc(100vh-92px)] px-4 pb-16 pt-10 sm:px-6 lg:px-8">
       <div className="mx-auto w-full max-w-4xl">
         <motion.div
           initial={{ opacity: 0, y: 12 }}
@@ -159,7 +162,7 @@ export default function Profile() {
                     <span className="text-sm font-semibold">Member Since</span>
                   </div>
                   <span className="text-sm font-bold text-slate-900">
-                    {meta.memberSince ? formatDate(meta.memberSince) : "—"}
+                    {meta.memberSince ? formatDate(meta.memberSince) : "--"}
                   </span>
                 </div>
               </div>
@@ -198,7 +201,7 @@ export default function Profile() {
 
                 {loading && (
                   <div className="rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4 text-sm font-semibold text-slate-500">
-                    Syncing profile…
+                    Syncing profile...
                   </div>
                 )}
               </div>
@@ -209,4 +212,3 @@ export default function Profile() {
     </div>
   );
 }
-

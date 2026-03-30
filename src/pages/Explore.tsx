@@ -1,8 +1,9 @@
 import { useContext, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
 import { Heart, Search } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
+
 import { AuthContext } from "../context/AuthContext";
 import { getSavedVehicleIds, getVehicles, toggleSavedVehicle } from "../lib/vrms";
 
@@ -25,17 +26,19 @@ export default function Explore() {
 
   const types = useMemo(() => {
     const unique = Array.from(new Set(vehicles.map((vehicle) => vehicle.type))) as string[];
-    unique.sort((a, b) => a.localeCompare(b));
+    unique.sort((left, right) => left.localeCompare(right));
     return ["all", ...unique];
   }, [vehicles]);
 
   const filtered = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
+
     return vehicles.filter((vehicle) => {
       const matchesQuery = normalizedQuery
         ? vehicle.name.toLowerCase().includes(normalizedQuery) || vehicle.type.toLowerCase().includes(normalizedQuery)
         : true;
       const matchesType = typeFilter === "all" ? true : vehicle.type === typeFilter;
+
       return matchesQuery && matchesType;
     });
   }, [query, typeFilter, vehicles]);
@@ -47,8 +50,8 @@ export default function Explore() {
       return;
     }
 
-    const next = toggleSavedVehicle(user.email, vehicleId);
-    setSavedIds(next);
+    const nextSavedIds = toggleSavedVehicle(user.email, vehicleId);
+    setSavedIds(nextSavedIds);
   };
 
   return (
@@ -74,14 +77,14 @@ export default function Explore() {
             <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search vehicles…"
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search vehicles..."
               className="w-full rounded-2xl border border-slate-200 bg-white px-11 py-3 text-sm font-semibold text-slate-900 outline-none transition-all focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20"
             />
           </div>
           <select
             value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value)}
+            onChange={(event) => setTypeFilter(event.target.value)}
             className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition-all focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20"
           >
             {types.map((type) => (
@@ -101,6 +104,7 @@ export default function Explore() {
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {filtered.map((vehicle) => {
               const isSaved = savedIds.includes(vehicle.id);
+
               return (
                 <motion.div
                   key={vehicle.id}

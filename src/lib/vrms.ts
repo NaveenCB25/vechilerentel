@@ -8,6 +8,8 @@ export type Vehicle = {
 };
 
 export type BookingStatus = "pending" | "active" | "completed" | "cancelled";
+export type PaymentMethod = "upi" | "card" | "netbanking" | "cash";
+export type PaymentStatus = "pending" | "paid";
 
 export type Booking = {
   id: string;
@@ -17,6 +19,8 @@ export type Booking = {
   endDate: string;
   location: string;
   status: BookingStatus;
+  paymentMethod: PaymentMethod;
+  paymentStatus: PaymentStatus;
   totalPrice: number;
   createdAt: string;
 };
@@ -27,6 +31,7 @@ export type DrivingLicense = {
   id: string;
   userEmail: string;
   fullName: string;
+  dob: string;
   licenseNumber: string;
   expiry: string;
   status: LicenseStatus;
@@ -80,7 +85,7 @@ const DEFAULT_VEHICLES: Vehicle[] = [
     name: "BMW M4 Competition",
     type: "Sports",
     image:
-      "https://images.unsplash.com/photo-1617814076367-b759c7a7fb80?auto=format&fit=crop&w=1400&q=80",
+      "https://bmw.scene7.com/is/image/BMW/DI23_000189521:16to7?fmt=webp&wid=2560&hei=1120",
     pricePerDay: 14999,
     specs: [
       { label: "Seats", value: "4" },
@@ -94,7 +99,7 @@ const DEFAULT_VEHICLES: Vehicle[] = [
     name: "Porsche 911 Carrera",
     type: "Supercar",
     image:
-      "https://images.unsplash.com/photo-1614200186441-1d5e4f62a2ff?auto=format&fit=crop&w=1400&q=80",
+      "https://prs.porsche.com/iod/image/IN/9921B2/1/N4Igxg9gdgZglgcxALlAQynAtmgLnaAZxQG0BdAGnDSwFMAnNFUOAExRFoA9cBaAGwgB3XjHrQ+-WjFwgqEAA74izEADc09OBlnIQrWoQDWuRSAC+5qrShq44qHSi6W7PQFV6AIwwBZNGAYciCKylDEqJZU-IgAFvhQSKggbBwAcgCSAOIAEgAqwaEE4cxRIArirACuYC4pbiAAnI0ATACMAEIthUrFEaCQsIikIAAMGQDMwaNpHdMACqPTeQDC0+5zVJ05wW1ZABy7ADIAyrtpU1tpAIK7i3cAort5lyBtABrdVC0ALI0TbQA+gApYHBForACs4IAaj9wQB1JbfABaayoEw6rwmADEnhicrcMcD4RiAIoFDEnZEgH7XV4-HFfWlZebBH5HABs7PcOOCkP2735AGkzlRIb4iSBIe90SBOR0pZyHvj5TiaZycVlgpzgQARHXCxo6tJgqicgBKcs57xhwQA7NdhQ6cs6qPbha97b5je73Nr3TCafbPsF9r6QPsMpTI2l7WG8m0wzCA01IVLGtcDVRGsCM-NXo0YW6mgiY40Uaq9fsLcEHqMpQ9fMycb4aTiUTSsm0+VQsnloX2YUmqBkYRGMkjgsL9nLhddmcKySOQEd+0dNiB5jsqGT08EyTkV2Tgdzd2TmWSYa93Blme55hH3O8zyAYergjCjjSYRalpRwAgKpnHoABPDgMjSYIsAgAx+AATVoTQUBaUYWk5SwrBAQhaFwBIEH6EAYAgegcF0EAACsFFoJAqFwRhwgUTQbF0GA0H4HDLCAA?clientId=modelpage",
     pricePerDay: 21999,
     specs: [
       { label: "Seats", value: "2+2" },
@@ -108,7 +113,7 @@ const DEFAULT_VEHICLES: Vehicle[] = [
     name: "Audi Q7",
     type: "SUV",
     image:
-      "https://images.unsplash.com/photo-1517949908119-720f2d0a4a2d?auto=format&fit=crop&w=1400&q=80",
+      "https://uploads.audi-mediacenter.com/system/production/media/122633/images/d6f275329fe669a9f1f59eb9686cddae331c6379/A240555_web_640.jpg?1733133179",
     pricePerDay: 9999,
     specs: [
       { label: "Seats", value: "7" },
@@ -122,7 +127,7 @@ const DEFAULT_VEHICLES: Vehicle[] = [
     name: "Mercedes G-Class",
     type: "Luxury SUV",
     image:
-      "https://images.unsplash.com/photo-1518066000714-58c45d58a984?auto=format&fit=crop&w=1400&q=80",
+      "https://media.oneweb.mercedes-benz.com/images/dynamic/europe/IN/465250/X24/iris.png?q=COSY-EU-100-1713d0VXqbWFqtyO67PobzIr3eWsrrCsdRRzwQZgk4ZbMw3SGtlaWtsd2H%25cUfgUfXGEzymJ0lcIhOB2PBqbApeIoI5usKDQC3UnpkzNL6Sm%25kbFDZEttsdB%25ycJtj9GXOcAyjJ0lCWtOB2vM%25bApLHXI5uazxQC3lQFkzN2Iwm7jyXZhKVUp4%25vq7IayLRltRYax2vWrH1pVtn8wrzboiZYMEM4FgTwTg93ve6PDNcoSeWcKWtsdYYQcUfFh6XGHRvW6INpqJRMiK81gEyJlfDADSjSiNsG8u4NLwa2ITvU%25&BKGND=9&IMGT=P27&cp=U7lLKRUtPa6KAFr8s_ubHw&uni=m&POV=BE040,PZM",
     pricePerDay: 18999,
     specs: [
       { label: "Seats", value: "5" },
@@ -136,7 +141,7 @@ const DEFAULT_VEHICLES: Vehicle[] = [
     name: "Royal Enfield Continental GT",
     type: "Bike",
     image:
-      "https://images.unsplash.com/photo-1524594164458-900b0f5d4b6a?auto=format&fit=crop&w=1400&q=80",
+      "https://www.royalenfield.com/content/dam/royal-enfield/motorcycles/continental-gt/banner/new/gallery/gallery-7.jpg",
     pricePerDay: 2499,
     specs: [
       { label: "Seats", value: "2" },

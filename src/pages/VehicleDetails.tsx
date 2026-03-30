@@ -1,10 +1,43 @@
 import { useContext, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { motion } from "motion/react";
-import { ArrowLeft, Heart, Info, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Heart, Info } from "lucide-react";
 import { toast } from "react-toastify";
 import { AuthContext } from "../context/AuthContext";
 import { getSavedVehicleIds, getVehicleById, toggleSavedVehicle } from "../lib/vrms";
+
+const INTERIOR_GALLERIES: Record<string, string[]> = {
+  "tesla-model-s": [
+    "https://images.unsplash.com/photo-1511919884226-fd3cad34687c?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=1200&q=80",
+  ],
+  "bmw-m4": [
+    "https://images.unsplash.com/photo-1544636331-e26879cd4d9b?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1553440569-bcc63803a83d?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1502877338535-766e1452684a?auto=format&fit=crop&w=1200&q=80",
+  ],
+  "porsche-911": [
+    "https://images.unsplash.com/photo-1511919884226-fd3cad34687c?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&w=1200&q=80",
+  ],
+  "audi-q7": [
+    "https://images.unsplash.com/photo-1489824904134-891ab64532f1?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1200&q=80",
+  ],
+  "mercedes-g-class": [
+    "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1489824904134-891ab64532f1?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?auto=format&fit=crop&w=1200&q=80",
+  ],
+  "royal-enfield-continental-gt": [
+    "https://images.unsplash.com/photo-1558981806-ec527fa84c39?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1529429617124-aee711a5ac1c?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1517846693594-1567da72af75?auto=format&fit=crop&w=1200&q=80",
+  ],
+};
 
 function formatInr(value: number) {
   return value.toLocaleString("en-IN");
@@ -40,6 +73,7 @@ export default function VehicleDetails() {
   }
 
   const isSaved = savedIds.includes(vehicle.id);
+  const interiorGallery = INTERIOR_GALLERIES[vehicle.id] || INTERIOR_GALLERIES["mercedes-g-class"];
 
   const handleToggleSave = () => {
     if (!user?.email) {
@@ -131,7 +165,7 @@ export default function VehicleDetails() {
                 <div>
                   <p className="font-bold text-slate-900">Booking details</p>
                   <p className="mt-1 text-sm text-slate-600">
-                    Select dates, location, and provide license information to confirm.
+                    Select dates, location, and driver details to continue your booking.
                   </p>
                 </div>
               </div>
@@ -143,25 +177,37 @@ export default function VehicleDetails() {
               </Link>
             </div>
 
-            <div className="rounded-[2rem] border border-slate-200 bg-white p-7 shadow-sm">
-              <div className="flex items-start gap-3">
-                <div className="rounded-2xl bg-emerald-50 p-2 text-emerald-600">
-                  <ShieldCheck className="h-4 w-4" />
+            <div className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="mb-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">Interior Preview</p>
+                <p className="mt-2 text-lg font-black text-slate-900">Inside the {vehicle.name}</p>
+              </div>
+
+              <div className="grid gap-3">
+                <div className="overflow-hidden rounded-[1.5rem] bg-slate-100">
+                  <img
+                    src={interiorGallery[0]}
+                    alt={`${vehicle.name} interior view`}
+                    className="aspect-[16/10] w-full object-cover"
+                    loading="lazy"
+                  />
                 </div>
-                <div>
-                  <p className="font-bold text-slate-900">License verification</p>
-                  <p className="mt-1 text-sm text-slate-600">
-                    Admins verify submissions to keep rentals safe and compliant.
-                  </p>
+
+                <div className="grid grid-cols-2 gap-3">
+                  {interiorGallery.slice(1).map((image, index) => (
+                    <div key={image} className="overflow-hidden rounded-[1.25rem] bg-slate-100">
+                      <img
+                        src={image}
+                        alt={`${vehicle.name} cabin detail ${index + 2}`}
+                        className="aspect-[4/3] w-full object-cover"
+                        loading="lazy"
+                      />
+                    </div>
+                  ))}
                 </div>
               </div>
-              <Link
-                to="/admin"
-                className="mt-5 inline-flex w-full items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-900 transition-colors hover:bg-slate-50"
-              >
-                Admin panel
-              </Link>
             </div>
+
           </motion.aside>
         </div>
       </div>

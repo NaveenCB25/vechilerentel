@@ -1,9 +1,11 @@
-import { useContext, useMemo } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useContext, useEffect, useMemo, useState } from "react";
 import { motion } from "motion/react";
 import { CalendarDays, DollarSign, Heart, LayoutDashboard, UserRound } from "lucide-react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+
 import { AuthContext } from "../context/AuthContext";
-import { getBookingsForUser, getSavedVehicleIds, getVehicleById, getVehicles } from "../lib/vrms";
+import { fetchUserBookings } from "../lib/rentals";
+import { getSavedVehicleIds, getVehicleById, getVehicles, type Booking } from "../lib/vrms";
 
 type DashboardTab = "home" | "collections" | "bookings";
 
@@ -20,21 +22,61 @@ function getBadgeClasses(status: string) {
 }
 
 export default function Dashboard() {
-  const { user } = useContext(AuthContext);
+  const { user, userToken, logoutUser } = useContext(AuthContext);
   const navigate = useNavigate();
   const { tab } = useParams();
 
   const activeTab = (tab as DashboardTab | undefined) || "home";
   const vehicles = useMemo(() => getVehicles(), []);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [bookingsLoading, setBookingsLoading] = useState(true);
+
+  useEffect(() => {
+    if (!userToken) {
+      setBookings([]);
+      setBookingsLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadBookings = async () => {
+      try {
+        const nextBookings = await fetchUserBookings(userToken);
+
+        if (!cancelled) {
+          setBookings(nextBookings);
+        }
+      } catch (error: any) {
+        if (!cancelled) {
+          if (String(error?.message || "").toLowerCase().includes("session")) {
+            logoutUser();
+            navigate("/login", { replace: true });
+            return;
+          }
+
+          setBookings([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setBookingsLoading(false);
+        }
+      }
+    };
+
+    void loadBookings();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [logoutUser, navigate, userToken]);
 
   const savedIds = useMemo(() => {
-    if (!user?.email) return [];
-    return getSavedVehicleIds(user.email);
-  }, [user?.email]);
+    if (!user?.email) {
+      return [];
+    }
 
-  const bookings = useMemo(() => {
-    if (!user?.email) return [];
-    return getBookingsForUser(user.email);
+    return getSavedVehicleIds(user.email);
   }, [user?.email]);
 
   const stats = useMemo(() => {
@@ -46,16 +88,14 @@ export default function Dashboard() {
   }, [bookings, savedIds.length]);
 
   const recentActivity = useMemo(() => {
-    const activity = bookings
-      .slice(0, 5)
-      .map((booking) => {
-        const vehicle = getVehicleById(booking.vehicleId);
-        return {
-          id: booking.id,
-          title: vehicle ? `Booked ${vehicle.name}` : "New booking",
-          meta: `${new Date(booking.createdAt).toLocaleDateString()} • ${booking.status}`,
-        };
-      });
+    const activity = bookings.slice(0, 5).map((booking) => {
+      const vehicle = getVehicleById(booking.vehicleId);
+      return {
+        id: booking.id,
+        title: vehicle ? `Booked ${vehicle.name}` : "New booking",
+        meta: `${new Date(booking.createdAt).toLocaleDateString()} | ${booking.status}`,
+      };
+    });
 
     if (activity.length > 0) {
       return activity;
@@ -75,11 +115,11 @@ export default function Dashboard() {
 
   const content = (
     <div className="mx-auto w-full max-w-7xl px-4 pb-14 pt-8 sm:px-6 lg:px-8">
-      <div className="sticky top-[80px] z-10 mb-8 rounded-[2rem] border border-white/70 bg-white/80 p-5 shadow-lg shadow-slate-900/5 backdrop-blur">
+      <div className="sticky top-[92px] z-10 mb-8 rounded-[2rem] border border-white/70 bg-white/80 p-5 shadow-lg shadow-slate-900/5 backdrop-blur dark:border-white/10 dark:bg-slate-900/80 dark:shadow-black/20">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">Dashboard</p>
-            <h1 className="mt-2 text-2xl font-black tracking-tight text-slate-900 sm:text-3xl">
+            <h1 className="mt-2 text-2xl font-black tracking-tight text-slate-900 dark:text-white sm:text-3xl">
               Welcome back{user?.name ? `, ${user.name}` : ""}
             </h1>
           </div>
@@ -92,10 +132,11 @@ export default function Dashboard() {
           </Link>
         </div>
 
-        <div className="mt-5 grid grid-cols-3 gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-1 sm:gap-3">
+        <div className="mt-5 grid grid-cols-3 gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-1 sm:gap-3 dark:border-white/10 dark:bg-slate-800">
           {tabs.map((item) => {
             const Icon = item.icon;
             const isActive = item.key === activeTab;
+
             return (
               <button
                 key={item.key}
@@ -159,7 +200,7 @@ export default function Dashboard() {
                   <DollarSign className="h-4 w-4" />
                 </div>
               </div>
-              <p className="mt-3 text-3xl font-black text-slate-900">₹{formatInr(stats.spent)}</p>
+              <p className="mt-3 text-3xl font-black text-slate-900">Rs. {formatInr(stats.spent)}</p>
             </div>
             <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-lg hover:shadow-slate-900/5">
               <div className="flex items-center justify-between">
@@ -252,7 +293,7 @@ export default function Dashboard() {
                           {vehicle!.type}
                         </span>
                       </div>
-                      <p className="mt-3 text-sm font-semibold text-slate-600">₹{formatInr(vehicle!.pricePerDay)}/day</p>
+                      <p className="mt-3 text-sm font-semibold text-slate-600">Rs. {formatInr(vehicle!.pricePerDay)}/day</p>
                     </div>
                   </Link>
                 ))}
@@ -268,7 +309,11 @@ export default function Dashboard() {
             <h2 className="mt-2 text-2xl font-black text-slate-900">My bookings</h2>
           </div>
 
-          {bookings.length === 0 ? (
+          {bookingsLoading ? (
+            <div className="rounded-[2rem] border border-slate-200 bg-white p-10 text-center shadow-sm">
+              <p className="text-sm font-semibold text-slate-500">Loading your bookings...</p>
+            </div>
+          ) : bookings.length === 0 ? (
             <div className="rounded-[2rem] border border-slate-200 bg-white p-10 text-center shadow-sm">
               <p className="text-lg font-bold text-slate-900">No bookings yet</p>
               <p className="mt-2 text-sm text-slate-500">Explore vehicles and book your first trip.</p>
@@ -283,6 +328,7 @@ export default function Dashboard() {
             <div className="grid gap-5 lg:grid-cols-2">
               {bookings.map((booking) => {
                 const vehicle = getVehicleById(booking.vehicleId);
+
                 return (
                   <div
                     key={booking.id}
@@ -301,7 +347,7 @@ export default function Dashboard() {
                           <div>
                             <p className="text-lg font-black text-slate-900">{vehicle?.name || "Vehicle"}</p>
                             <p className="mt-1 text-sm text-slate-500">
-                              {new Date(booking.startDate).toLocaleDateString()} → {new Date(booking.endDate).toLocaleDateString()}
+                              {new Date(booking.startDate).toLocaleDateString()} to {new Date(booking.endDate).toLocaleDateString()}
                             </p>
                           </div>
                           <span className={`rounded-full px-3 py-1 text-xs font-bold ${getBadgeClasses(booking.status)}`}>
@@ -310,7 +356,21 @@ export default function Dashboard() {
                         </div>
                         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
                           <p className="text-sm font-semibold text-slate-600">{booking.location}</p>
-                          <p className="text-sm font-bold text-slate-900">₹{formatInr(booking.totalPrice)}</p>
+                          <p className="text-sm font-bold text-slate-900">Rs. {formatInr(booking.totalPrice)}</p>
+                        </div>
+                        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-500">
+                          <span className="rounded-full bg-slate-100 px-3 py-1 capitalize">
+                            {booking.paymentMethod.replace("netbanking", "net banking")}
+                          </span>
+                          <span
+                            className={`rounded-full px-3 py-1 ${
+                              booking.paymentStatus === "paid"
+                                ? "bg-emerald-100 text-emerald-700"
+                                : "bg-amber-100 text-amber-700"
+                            }`}
+                          >
+                            {booking.paymentStatus}
+                          </span>
                         </div>
                         {vehicle && (
                           <Link
@@ -332,6 +392,5 @@ export default function Dashboard() {
     </div>
   );
 
-  return <div className="min-h-[calc(100vh-80px)]">{content}</div>;
+  return <div className="min-h-[calc(100vh-92px)]">{content}</div>;
 }
-

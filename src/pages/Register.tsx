@@ -1,9 +1,10 @@
 import React, { useContext, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import axios from "axios";
 import { motion } from "motion/react";
 import { LockKeyhole, Mail, Phone, UserRound } from "lucide-react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
+
 import { AuthContext } from "../context/AuthContext";
 import { API_BASE_URL } from "../lib/api";
 
@@ -16,12 +17,12 @@ export default function Register() {
 
   const redirectTo = searchParams.get("redirect") || "";
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+  const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData({ ...formData, [event.target.name]: event.target.value });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     setLoading(true);
 
     try {
@@ -46,119 +47,138 @@ export default function Register() {
           navigate(redirectTo || "/dashboard");
         }
       }
-    } catch (err: any) {
-      toast.error(err.response?.data?.error || "Signup failed");
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || "Signup failed");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="relative flex min-h-[calc(100vh-80px)] items-center justify-center overflow-hidden px-4 py-12 sm:px-6 lg:px-8">
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -left-24 -top-24 h-72 w-72 rounded-full bg-blue-600/15 blur-3xl" />
-        <div className="absolute -bottom-24 -right-24 h-72 w-72 rounded-full bg-sky-500/20 blur-3xl" />
-      </div>
+    <div className="relative h-[calc(100vh-92px)] overflow-hidden bg-[linear-gradient(135deg,#171f3b_0%,#10172b_46%,#0d1325_100%)] text-white">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(99,102,241,0.24),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(56,189,248,0.12),transparent_26%)]" />
 
-      <motion.div
-        initial={{ opacity: 0, y: 14, scale: 0.98 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.45, ease: "easeOut" }}
-        className="relative w-full max-w-md rounded-[2rem] border border-slate-200/70 bg-white/90 p-8 shadow-2xl shadow-slate-900/8 backdrop-blur"
-      >
-        <div className="mb-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">Vehicle Rental</p>
-          <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-900">Create account</h2>
-          <p className="mt-1 text-sm text-slate-500">Sign up to save vehicles and manage bookings.</p>
+      <div className="relative grid h-full overflow-hidden lg:grid-cols-[0.9fr_1.1fr]">
+        <div className="flex items-start justify-center overflow-y-auto px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
+          <motion.div
+            initial={{ opacity: 0, y: 16, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ duration: 0.45, ease: "easeOut" }}
+            className="w-full max-w-[450px] rounded-[1.55rem] border border-white/10 bg-white/6 p-5 shadow-[0_20px_56px_rgba(0,0,0,0.24)] backdrop-blur-xl sm:p-6"
+          >
+            <div className="mb-5">
+              <h1 className="text-[2.1rem] font-black tracking-tight text-white sm:text-[2.35rem]">Create Account</h1>
+              <p className="mt-2 text-base text-slate-300">Sign up to manage bookings and access premium rentals</p>
+            </div>
+
+            <form className="space-y-4" onSubmit={handleSubmit}>
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-slate-200">Full Name</label>
+                <div className="relative">
+                  <UserRound className="pointer-events-none absolute left-4 top-1/2 h-4.5 w-4.5 -translate-y-1/2 text-slate-400" />
+                  <input
+                    name="name"
+                    type="text"
+                    required
+                    className="w-full rounded-[1.1rem] border border-white/10 bg-white/4 px-11 py-3 text-base text-white outline-none transition-all placeholder:text-slate-500 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-400/25"
+                    placeholder="Your full name"
+                    value={formData.name}
+                    onChange={handleChange}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-slate-200">Email Address</label>
+                <div className="relative">
+                  <Mail className="pointer-events-none absolute left-4 top-1/2 h-4.5 w-4.5 -translate-y-1/2 text-slate-400" />
+                  <input
+                    name="email"
+                    type="email"
+                    required
+                    className="w-full rounded-[1.1rem] border border-white/10 bg-white/4 px-11 py-3 text-base text-white outline-none transition-all placeholder:text-slate-500 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-400/25"
+                    placeholder="you@example.com"
+                    value={formData.email}
+                    onChange={handleChange}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-slate-200">Phone Number</label>
+                <div className="relative">
+                  <Phone className="pointer-events-none absolute left-4 top-1/2 h-4.5 w-4.5 -translate-y-1/2 text-slate-400" />
+                  <input
+                    name="phone"
+                    type="tel"
+                    required
+                    className="w-full rounded-[1.1rem] border border-white/10 bg-white/4 px-11 py-3 text-base text-white outline-none transition-all placeholder:text-slate-500 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-400/25"
+                    placeholder="+91 98765 43210"
+                    value={formData.phone}
+                    onChange={handleChange}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-slate-200">Password</label>
+                <div className="relative">
+                  <LockKeyhole className="pointer-events-none absolute left-4 top-1/2 h-4.5 w-4.5 -translate-y-1/2 text-slate-400" />
+                  <input
+                    name="password"
+                    type="password"
+                    required
+                    minLength={6}
+                    className="w-full rounded-[1.1rem] border border-white/10 bg-white/4 px-11 py-3 text-base text-white outline-none transition-all placeholder:text-slate-500 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-400/25"
+                    placeholder="Create a strong password"
+                    value={formData.password}
+                    onChange={handleChange}
+                  />
+                </div>
+                <p className="mt-2 text-sm text-slate-400">Minimum 6 characters.</p>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="inline-flex w-full items-center justify-center rounded-[1.15rem] bg-gradient-to-r from-indigo-500 via-violet-500 to-sky-400 px-5 py-3 text-lg font-bold text-white shadow-[0_18px_38px_rgba(99,102,241,0.26)] transition-transform hover:scale-[1.01] disabled:opacity-60"
+              >
+                {loading ? "Creating..." : "Create Account"}
+              </button>
+            </form>
+
+            <div className="mt-6 text-center text-base text-slate-400">
+              Already have an account?{" "}
+              <Link
+                to={`/login${redirectTo ? `?redirect=${encodeURIComponent(redirectTo)}` : ""}`}
+                className="font-semibold text-indigo-400 transition-colors hover:text-indigo-300"
+              >
+                Sign in
+              </Link>
+            </div>
+          </motion.div>
         </div>
 
-        <form className="space-y-5" onSubmit={handleSubmit}>
-          <div>
-            <label className="mb-2 block text-sm font-semibold text-slate-700">Name</label>
-            <div className="relative">
-              <UserRound className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <input
-                name="name"
-                type="text"
-                required
-                className="w-full rounded-2xl border border-slate-200 bg-white px-11 py-3 text-slate-900 outline-none transition-all focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20"
-                placeholder="Your name"
-                value={formData.name}
-                onChange={handleChange}
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="mb-2 block text-sm font-semibold text-slate-700">Email</label>
-            <div className="relative">
-              <Mail className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <input
-                name="email"
-                type="email"
-                required
-                className="w-full rounded-2xl border border-slate-200 bg-white px-11 py-3 text-slate-900 outline-none transition-all focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20"
-                placeholder="you@example.com"
-                value={formData.email}
-                onChange={handleChange}
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="mb-2 block text-sm font-semibold text-slate-700">Phone</label>
-            <div className="relative">
-              <Phone className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <input
-                name="phone"
-                type="tel"
-                required
-                className="w-full rounded-2xl border border-slate-200 bg-white px-11 py-3 text-slate-900 outline-none transition-all focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20"
-                placeholder="+91 98765 43210"
-                value={formData.phone}
-                onChange={handleChange}
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="mb-2 block text-sm font-semibold text-slate-700">Password</label>
-            <div className="relative">
-              <LockKeyhole className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <input
-                name="password"
-                type="password"
-                required
-                minLength={6}
-                className="w-full rounded-2xl border border-slate-200 bg-white px-11 py-3 text-slate-900 outline-none transition-all focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20"
-                placeholder="••••••"
-                value={formData.password}
-                onChange={handleChange}
-              />
-            </div>
-            <p className="mt-2 text-xs text-slate-500">Minimum 6 characters.</p>
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-blue-600 to-blue-700 px-5 py-3.5 text-sm font-bold text-white shadow-xl shadow-blue-600/20 transition-transform hover:scale-[1.01] disabled:opacity-60"
+        <div className="relative hidden h-full overflow-hidden lg:block">
+          <div className="absolute inset-0 bg-black/42" />
+          <img
+            src="https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1400&q=80"
+            alt="Premium car dashboard"
+            className="h-full w-full object-cover"
+          />
+          <motion.div
+            initial={{ opacity: 0, y: 18 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: "easeOut", delay: 0.18 }}
+            className="absolute bottom-8 left-8 max-w-[420px] rounded-[1.45rem] border border-white/10 bg-slate-900/72 px-5 py-5 shadow-2xl shadow-black/25 backdrop-blur-md"
           >
-            {loading ? "Creating..." : "Sign up"}
-          </button>
-        </form>
-
-        <p className="mt-6 text-center text-sm text-slate-600">
-          Already have an account?{" "}
-          <Link
-            to={`/login${redirectTo ? `?redirect=${encodeURIComponent(redirectTo)}` : ""}`}
-            className="font-semibold text-blue-600 hover:text-blue-500"
-          >
-            Sign in
-          </Link>
-        </p>
-      </motion.div>
+            <h2 className="text-3xl font-black tracking-tight text-white">Join DreamCar</h2>
+            <p className="mt-3 text-lg leading-8 text-slate-300">
+              Create your account, save favorite vehicles, manage bookings, and unlock a smoother premium rental experience.
+            </p>
+          </motion.div>
+        </div>
+      </div>
     </div>
   );
 }
-

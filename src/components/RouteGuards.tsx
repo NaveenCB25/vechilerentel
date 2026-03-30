@@ -36,7 +36,7 @@ export function RequireAdmin() {
 
   if (!isAdminAuthenticated) {
     const redirect = `${location.pathname}${location.search}`;
-    return <Navigate to={`/login?mode=admin&redirect=${encodeURIComponent(redirect)}`} replace />;
+    return <Navigate to={`/admin/login?redirect=${encodeURIComponent(redirect)}`} replace />;
   }
 
   return <Outlet />;
