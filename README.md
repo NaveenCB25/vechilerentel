@@ -108,4 +108,4 @@ npm run lint
 
 ## Author
 
-Developed by Veerendra Kumar KR
+Developed by Veerendra Kumar KR and Naveena C B
